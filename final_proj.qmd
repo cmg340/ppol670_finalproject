@@ -1,0 +1,14 @@
+---
+title: "Final Project"
+author: "Elena Spielmann, Leanne Chook, Maeve Grady and Patrick Jones"
+format: 
+  html:
+    code-fold: true
+    self-contained: true
+execute: 
+  echo: true
+  warning: false
+  error: false
+editor_options: 
+  chunk_output_type: console
+---
