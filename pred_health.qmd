@@ -1,6 +1,16 @@
 ---
 title: "Final Project - Predicting Health indicators"
-format: html
+author: "Elena Spielmann, Patrick Jones, Leanne Chook, and Maeve Grady"
+format: 
+  html:
+    code-fold: true
+    self-contained: true
+execute: 
+  echo: true
+  warning: false
+  error: false
+editor_options: 
+  chunk_output_type: console
 ---
 ## Setup (loading packages)
 ```{r}
@@ -25,8 +35,7 @@ library(here)
 
 url <- parse_url("https://gis.ers.usda.gov/arcgis/rest/services")
 url$path <- paste(url$path, "foodaccess2019/MapServer/0/query", sep = "/")
-url$query <- list(where = "State = 'Alabama'",
-                  returnGeometry = "true",
+url$query <- list(returnGeometry = "true",
                   f = "geojson",
                   outFields = "*")
 request <- build_url(url)
@@ -50,9 +59,7 @@ user_name <- Sys.getenv("PLACES_username")
 password <- Sys.getenv("PLACES_password")
 
 
-
 #PLACES dataset
-
 
 places <- read.socrata(
   "https://chronicdata.cdc.gov/resource/swc5-untb.json",
