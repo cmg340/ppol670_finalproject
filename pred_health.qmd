@@ -1,0 +1,63 @@
+---
+title: "Final Project - Predicting Health indicators"
+format: html
+---
+## Setup (loading packages)
+```{r}
+
+install.packages("httr")
+library(httr)
+library(sf)
+#install.packages("tmap")
+library(tmap)
+library(dotenv)
+library(here)
+
+```
+
+
+
+## Reading in Data using APIs
+
+```{r}
+#accessing FARA data through ArcGIS REST API
+## to write this code I consulted this blog post: https://community.esri.com/t5/gis-blog/accessing-arcgis-rest-services-using-r/ba-p/898451
+
+url <- parse_url("https://gis.ers.usda.gov/arcgis/rest/services")
+url$path <- paste(url$path, "foodaccess2019/MapServer/0/query", sep = "/")
+url$query <- list(where = "State = 'Alabama'",
+                  returnGeometry = "true",
+                  f = "geojson",
+                  outFields = "*")
+request <- build_url(url)
+
+foodaccess <- st_read(request) ## this should create a full dataframe but is obviously not working right now.  
+
+
+##using this api to try to figure out how the query should work:
+##https://gis.ers.usda.gov/arcgis/rest/services/foodaccess2019/MapServer/0/query?where=&text=&objectIds=&time=&geometry=&geometryType=esriGeometryPolygon&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=html
+
+```
+
+```{r}
+#install.packages("RSocrata")
+library(RSocrata) ## the Rsocrata package has to be loaded in after httr package for the above code to work 
+
+##reading in api credentials
+load_dot_env(here(".env"))
+app_token <- Sys.getenv("PLACES_app_token")
+user_name <- Sys.getenv("PLACES_username")
+password <- Sys.getenv("PLACES_password")
+
+
+
+#PLACES dataset
+
+
+places <- read.socrata(
+  "https://chronicdata.cdc.gov/resource/swc5-untb.json",
+  app_token = paste(app_token),
+  email     = paste(user_name),
+  password  = paste(password)
+)
+```
