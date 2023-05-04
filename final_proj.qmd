@@ -110,16 +110,60 @@ places <- places %>%
 combined <- left_join(places, fara, 
                       by = "census_tract") 
 
+# clean and prepocess dataset - remove missing values, outliers or irrelevant variables that may affect the anlaysis 
+
 ```
 
 ## Exploratory Data Analysis
 
-```{r}
-
-```
-
-## Modeling
+Use EDA to to understand the distribution of the variables and identify patterns or relationships. Use things like scatter plots or correlation matrices to visualise the relationship between obesity prevalence and other factors like food access, income, or education
 
 ```{r}
 
 ```
+
+## Machine Learning
+
+select appropriate machine learning models (linear and decision trees, or any others)
+
+**Decision Tree Model**
+
+```{r}
+set.seed()
+
+# split the data into training and testing sets 
+
+
+# fit model to the training set 
+
+
+# evaluate its performance using MSE or accuracy
+
+
+# fit the model to the testing set 
+
+
+```
+
+**Linear Regression (or any other) Model**
+
+```{r}
+set.seed()
+
+# split the data into training and testing sets 
+
+
+# fit model to the training set 
+
+
+# evaluate its performance using MSE or accuracy
+
+
+# fit the model to the testing set 
+
+```
+
+## Final Results 
+
+
+## Conclusion 
