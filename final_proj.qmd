@@ -1,5 +1,5 @@
 ---
-title: "Final Project - Predicting Health indicators"
+title: "Final Project - Predicting Health Indicators"
 author: "Elena Spielmann, Patrick Jones, Leanne Chook, and Maeve Grady"
 format: 
   html:
@@ -12,6 +12,10 @@ execute:
 editor_options: 
   chunk_output_type: console
 ---
+## Introduction 
+
+
+
 ## Setup (loading packages)
 ```{r}
 
@@ -22,10 +26,23 @@ library(sf)
 library(tmap)
 library(dotenv)
 library(here)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(tidymodels)
+library(themis)
+library(rpart.plot)
+library(vip)
+library(lubridate)
+library(rpart)
+library(ranger)
+library(ggplot2)
+library(parsnip)
+library(yardstick)
+library(sf)
+library(janitor) 
 
 ```
-
-
 
 ## Reading in Data using APIs
 
@@ -67,4 +84,42 @@ places <- read.socrata(
   email     = paste(user_name),
   password  = paste(password)
 )
+```
+
+## Combining the Datasets
+
+**The Food Access Research Atlas (FARA)** provides a variety of food access measures for low income and low access census tracts. Food access measures use income, transportation, and distance from grocery stores and other food sellers to determine how accessible food is to residents of a given census tract. This dataset includes distinct measures of access for urban and rural populations.
+
+(rewrite this)
+**PLACES** is an expansion of the original 500 Cities Project that began in 2015. The original project was launched by the Centers for Disease Control and Prevention (CDC) in partnership with the Robert Wood Johnson Foundation (RWJF) and CDC Foundation. In 2018, this partnership was extended through 2020. In 2020, the project expanded to provide small area estimates (SAE) for counties, places, census tracts, and ZIP Code Tabulation Areas (ZCTA) across the entire United States.
+
+```{r}
+# load the FARA dataset 
+fara <- read_excel("fara_2019.xlsx")
+
+# clean the variable names 
+fara <- clean_names(fara)
+
+# load the PLACES dataset
+places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")
+
+places <- places %>%
+  rename(census_tract = locationid)
+
+# merge the data frames by census tract 
+combined <- left_join(places, fara, 
+                      by = "census_tract") 
+
+```
+
+## Exploratory Data Analysis
+
+```{r}
+
+```
+
+## Modeling
+
+```{r}
+
 ```
