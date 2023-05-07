@@ -14,6 +14,10 @@ editor_options:
 ---
 ## Introduction 
 
+*Motivating question:*
+
+
+*Outline of project:*
 
 
 ## Setup (loading packages)
@@ -124,42 +128,206 @@ Use EDA to to understand the distribution of the variables and identify patterns
 
 ## Machine Learning
 
-select appropriate machine learning models (linear and decision trees, or any others)
-
-**Decision Tree Model**
+*Setting up the testing environment*
 
 ```{r}
-set.seed()
+set.seed(20230507)
 
 # split the data into training and testing sets 
+obesity_split <- initial_split(data = combined, 
+                               prop - 0.8)
 
+obesity_train <- training(x = obesity_split)
+obesity_test <- testing(x = obesity_split)
 
-# fit model to the training set 
-
-
-# evaluate its performance using MSE or accuracy
-
-
-# fit the model to the testing set 
-
+# set up v-fold cross validation 
+folds <- vfold_cv(data = obesity_train, v = 10, repeats = 1)
 
 ```
 
 **Linear Regression (or any other) Model**
 
 ```{r}
-set.seed()
 
-# split the data into training and testing sets 
+# create model
+lm_mod <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode(mode = "regression")
 
+# set up workflow 
+lm_wf <- workflow() %>%
+  add_recipe(obesity_rec) %>%
+  add_model(lm_mod)
 
-# fit model to the training set 
+# use resamples 
+lm_cv <- lm_wf %>%
+  fit_resamples(resamples = folds,
+                metrics = metric_set(rmse, mae))
 
+# collect metrics and find the best model
+lm_best <- lm_cv %>%
+  select_best(metric = "rmse")
+
+lm_final <- lm_wf %>%
+  finalize_workflow(parameters = lm_best)
+
+collect_metrics(lm_cv, summarize = TRUE)
+
+# fit the model
+lm_fit <- lm_final %>%
+  fit(obesity_train)
 
 # evaluate its performance using MSE or accuracy
 
+collect_metrics(lm_cv, summarize = FALSE) %>%
+  filter(.metric == "rmse") %>%
+  ggplot(mapping = aes(x = id, y = .estimate, group = .estimator, label = round(.estimate, digits = 2))) +
+  geom_line() +
+  geom_point() +
+  geom_label(nudge_y = -500) +
+  scale_y_continuous(limits = c(10000, 17500)) +
+  labs(title = "Obesity: Linear Regression Model (RMSE Across 10 Folds)", 
+       y = "Predicted RMSE",
+       x = "Fold Number") +
+  theme_minimal()
 
-# fit the model to the testing set 
+```
+
+**KNN Model**
+
+```{r}
+knn_mod <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine(engine = "kknn") %>%
+  set_mode(mode = "regression")
+
+# set up workflow
+knn_workflow <- 
+  workflow() %>%
+  add_model(spec = knn_mod) %>%
+  add_recipe(recipe = obesity_rec)
+
+# create a tuning grid 
+knn_grid <- grid_regular(neighbors(range = c(1, 15)), levels = 8)
+
+# fitting model to the training data 
+knn_res <- 
+  knn_workflow %>%
+  tune_grid(resamples = folds,
+            grid = knn_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(rmse, mae))
+
+# collecting the metrics and determining the best model
+knn_best <- knn_res %>%
+  select_best(metric = "rmse")
+
+# finalize workflow 
+knn_final <- knn_workflow %>%
+  finalize_workflow(parameters = knn_best)
+
+# fit model 
+knn_fit <- knn_final %>%
+  fit(obesity_train)
+
+knn_fit_rs <- knn_final %>%
+  fit_resamples(resamples = folds)
+
+# evaluate the model
+collect_metrics(knn_res, summarize = FALSE) %>%
+  filter(.metric == "rmse") %>%
+  ggplot(mapping = aes(x = id, y = .estimate, group = .estimator, label = round(.estimate, digits = 2))) +
+  geom_line() +
+  geom_point() +
+  geom_label(nudge_y = -500) +
+  scale_y_continuous(limits = c(10000, 17500)) +
+  labs(title = "Obesity: KNN Model (RMSE Across 10 Folds)", 
+       y = "Predicted RMSE",
+       x = "Fold Number") +
+  theme_minimal()
+
+
+```
+
+**Decision Tree Model**
+
+```{r}
+# create a recipe
+obesity_rec <- recipe(formula = , 
+                      data = obesity_train)
+
+# create a model
+tree_mod <- 
+  decision_tree() %>%
+  set_engine(engine = "rpart") %>%
+  set_mode(mode = "classification")
+
+# create a workflow
+tree_wf <- workflow() %>%
+  add_recipe(obesity_rec) %>%
+  add_model(tree_mod)
+
+# resampling 
+tree_cv <- tree_wf %>%
+  fit_resamples(resamples = folds)
+
+# use RMSE to choose the best model 
+tree_best <- tree_cv %>%
+  select_best(metric = "rmse")
+
+# finalise workflow 
+tree_final <- tree_wf %>%
+  finalize_workflow(parameters = tree_best)
+
+# fit model to the training set 
+tree_fit <- tree_wf %>%
+  fit(data = obesity_train)
+
+# create a tree 
+rpart.plot::rpart.plot(x = obesity_fit$fit$fit$fit, roundint = FALSE)
+
+
+```
+
+*Evaluate Model*
+
+```{r}
+# making predictions on the test dataset
+predictions <- bind_cols(
+  obesity_test,
+  predict(object = obesity_fit, new_data = obesity_test),
+  predict(object = obesity_fit, new_data = obesity_test, type = "prob")
+)
+
+#comparing tree predictions to true values
+conf_mat(data = predictions, 
+         truth = grade,
+         estimate = .pred_class)
+
+#calculating accuracy, recall, and precision
+accuracy <- accuracy(data = predictions,
+                     truth = grade,
+                     estimate = .pred_class)
+
+
+precision <- yardstick::precision(data = predictions,
+                                  truth = grade,
+                                  estimate = .pred_class)
+
+recall <- yardstick::recall(data = predictions,
+                            truth = grade,
+                            estimate = .pred_class)
+
+print(c("the model accuracy is:", round(accuracy$.estimate, digits = 3)))
+print(c("the model precision is:", round(precision$.estimate, digits = 3)))
+
+print(c("the model recall is:", round(recall$.estimate, digits = 3)))
+
+
+# variable importance
+
+tree_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 10)
 
 ```
 
