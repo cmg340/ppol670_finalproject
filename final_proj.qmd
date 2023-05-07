@@ -14,16 +14,22 @@ editor_options:
 ---
 ## Introduction 
 
-*Motivating question:*
+Obesity has reached epidemic proportions in the United States, and affects people of all ages, socioeconomic backgrounds and ethnicities, which imposes substantial economic burdens in the form of productivity losses, strains to the healthcare system and costs. 
 
+The prevalence of obesity in the United States was approximately 41.9% in 2017 to 2020, of that, the prevalence of severe obesity also increased to 9.2%. This increasing trend is worrying because obesity can lead to several other health conditions such as heart disease, strokes, type 2 diabetes, and certain types of cancers, all of which are the leading causes of preventable and premature deaths in the country. 
 
-*Outline of project:*
+Furthermore, this increasing trend of obesity also has other implications on national security, especially as more individuals become ineligible for the military, therefore, significantly reducing military recruitment numbers. 
 
+**Motivating question:**
+The main motivating question for this project was to examine obesity rates across the United States and find predictors that can help policymakers make effective decisions to help reduce obesity prevalence in the most vulnerable areas. 
 
-## Setup (loading packages)
+**Outline of project:**
+This project will be as follows, first we will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas. Then we will conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, and finally we create several predictive models to find the best model with highest predictive power. 
+
+*Setup (loading packages)*
+
 ```{r}
-
-install.packages("httr")
+# install.packages("httr")
 library(httr)
 library(sf)
 #install.packages("tmap")
@@ -126,7 +132,7 @@ Use EDA to to understand the distribution of the variables and identify patterns
 
 ```
 
-## Machine Learning
+## (Supervised) Machine Learning
 
 *Setting up the testing environment*
 
@@ -285,12 +291,6 @@ tree_fit <- tree_wf %>%
 # create a tree 
 rpart.plot::rpart.plot(x = obesity_fit$fit$fit$fit, roundint = FALSE)
 
-
-```
-
-*Evaluate Model*
-
-```{r}
 # making predictions on the test dataset
 predictions <- bind_cols(
   obesity_test,
