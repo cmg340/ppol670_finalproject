@@ -149,6 +149,13 @@ obesity_test <- testing(x = obesity_split)
 # set up v-fold cross validation 
 folds <- vfold_cv(data = obesity_train, v = 10, repeats = 1)
 
+# create a recipe (need to look at what needs to be added)
+obesity_rec <- recipe(formula = , data = obesity_train) %>%
+  step_naomit(all_predictors()) %>%
+  step_center(all_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+
+
 ```
 
 **Linear Regression (or any other) Model**
@@ -257,10 +264,6 @@ collect_metrics(knn_res, summarize = FALSE) %>%
 **Decision Tree Model**
 
 ```{r}
-# create a recipe
-obesity_rec <- recipe(formula = , 
-                      data = obesity_train)
-
 # create a model
 tree_mod <- 
   decision_tree() %>%
