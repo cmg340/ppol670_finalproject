@@ -29,7 +29,7 @@ This project will be as follows, first we will examine and clean up the availabl
 *Setup (loading packages)*
 
 ```{r}
-# install.packages("httr")
+#install.packages("httr")
 library(httr)
 library(sf)
 #install.packages("tmap")
@@ -51,6 +51,8 @@ library(parsnip)
 library(yardstick)
 library(sf)
 library(janitor) 
+library(stringr)
+library(RSocrata)
 
 ```
 
@@ -110,18 +112,57 @@ fara <- read_excel("fara_2019.xlsx")
 # clean the variable names 
 fara <- clean_names(fara)
 
+
 # load the PLACES dataset
 places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")
 
 places <- places %>%
   rename(census_tract = locationid)
 
-# merge the data frames by census tract 
-combined <- left_join(places, fara, 
+#The places dataset must be made tidy in order to properly merge it with FARA
+#Column names will come from measureid, and values from data_value
+#Crude and age adjusted values are distinguished by the data_value_type variable, the measureid
+#variable does not distinguish between crude and age adjusted variables, we need to distinguish
+#between the age adjusted and crude estimates before turning measureid values into columns
+#start by simplifying data_value_type, crude is represented by C and adjusted by A
+#When I got the right dataset, this step wasn't actually needed
+#places_tidy <- places %>%
+  #mutate(data_value_type = case_when(
+    #data_value_type == "Crude prevalence" ~ "C",
+    #data_value_type == "Age-adjusted prevalence" ~ "A"
+  #))
+#Next, add this to measureid to distinguish between crude and age-adjusted estimates
+#places_tidy <- places_tidy %>%
+  #mutate(measureid = str_c(measureid, data_value_type))
+#creating tidy dataset
+places_tidy <- places
+#Filtering observations to 2020 only
+places_tidy <- places %>%
+  filter(year == 2020)
+#There are a number of columns that are not necessary, they need to be dropped as well
+places_tidy <- places_tidy %>%
+  dplyr::select(-(c(statedesc, datasource, category, measure, data_value_unit,
+          data_value_type, low_confidence_limit, high_confidence_limit,
+          categoryid, datavaluetypeid, short_question_text, countyfips, 
+          locationname, data_value_footnote, data_value_footnote_symbol,
+          )))
+#Finally, we can pivot this dataset to wide format
+places_tidy <- places_tidy %>%
+  pivot_wider(names_from = "measureid",
+              values_from = "data_value")
+# merge the data frames by census tract
+#swapped places and fara so that the combined dataset only has census tracts that are in fara
+combined <- right_join(places_tidy, fara,
                       by = "census_tract") 
 
-# clean and prepocess dataset - remove missing values, outliers or irrelevant variables that may affect the anlaysis 
+# Read in the shapefile
+census <- st_read(dsn = "cb_2020_us_county_20m.shp")
 
+#binding census shapefile to this dataset
+census <- census %>%
+  st_set_crs(value = 4326) 
+
+# clean and prepocess dataset - remove missing values, outliers or irrelevant variables that may affect the anlaysis 
 ```
 
 ## Exploratory Data Analysis
@@ -129,6 +170,90 @@ combined <- left_join(places, fara,
 Use EDA to to understand the distribution of the variables and identify patterns or relationships. Use things like scatter plots or correlation matrices to visualise the relationship between obesity prevalence and other factors like food access, income, or education
 
 ```{r}
+glimpse(combined)
+#A ton of our numeric variables are stored as character variables, they need to be converted to numeric variables
+to_convert <- colnames(select_if(combined, is.character))
+to_convert <- to_convert[!to_convert %in% c("census_tract", "countyname", "year", "stateabbr", "geometry")]
+to_convert <- unlist(to_convert)
+combined <- combined %>%
+  mutate_at(to_convert, as.numeric)
+#some of these numerics need to be converted to factors
+factors <- c("urban", "group_quarters_flag", "lila_tracts_1and10", "lila_tracts_half_and10",
+            "lila_tracts_vehicle", "hunv_flag", "low_income_tracts",
+             "la1and20", "la_tracts_half", "la_tracts1", "la_tracts10",
+             "la_tracts20", "la_tracts_vehicle_20")
+combined <- combined %>%
+  mutate_at(factors, as.factor)
+
+eda_point <- function(data, x, y, fill){
+  
+  ggplot(data = data, 
+       aes(x = {{ x }},
+           y = {{ y }})) +
+  geom_point(aes(fill = {{ fill }}),
+             color = "white", 
+             shape = 21) 
+}
+combined %>%
+  st_transform(4326)
+
+
+eda_geo <- function(data, fill){
+  
+  ggplot(data = data) +
+  geom_sf(aes(fill = {{ fill }})) +
+  theme_void() 
+}
+
+#point plot to compare obesity prevalence between urban and rural areas
+eda_point(combined, poverty_rate, OBESITY, urban)
+
+#boxplot to compare the distribution of obesity prevalence between urban and rural areas
+ggplot(combined, aes(x = urban, y = OBESITY)) +
+  geom_boxplot() +
+  labs(x = "Urban/Rural", y = "Obesity Prevalence")
+#While the average obesity rate is higher in rural areas, urban areas have higher variability of of data.
+
+#scatter plot to explore the relationship between obesity prevalence and poverty rate
+ggplot(combined, aes(x = poverty_rate, y = OBESITY)) +
+  geom_point() +
+  labs(x = "Poverty Rate", y = "Obesity Prevalence")
+#Unsurprisingly, as the poverty rate increases, obesity rates increase as well.
+
+#chloropleth map of obesity - need to set the data
+eda_geo(combined, OBESITY)
+
+#I did some exploration by state. I know we discussed sticking with census tract, but I thought this might be an interesting talking point when we are complete with the census tract analysis. 
+
+# Calculate summary statistics by state
+summary_stats <- combined %>%
+  group_by(stateabbr) %>%
+  summarize(mean_obesity = mean(OBESITY, na.rm = TRUE),
+            median_income = median(median_family_income, na.rm = TRUE),
+            sd_food_access = sd(la1and10, na.rm = TRUE))
+
+
+head(summary_stats)
+
+# Plot mean obesity by state
+ggplot(summary_stats, aes(x = stateabbr, y = mean_obesity)) +
+  geom_bar(stat = "identity") +
+  labs(x = "State", y = "Mean Obesity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot median income by state
+ggplot(summary_stats, aes(x = stateabbr, y = median_income)) +
+  geom_bar(stat = "identity") +
+  labs(x = "State", y = "Median Income") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot standard deviation of food access by state
+ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
+  geom_bar(stat = "identity") +
+  labs(x = "State", y = "Standard Deviation of Food Access") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#The standard deviation of food access by state will tell us the degree of variability of the food access variable across different census tracts within each state. A higher standard deviation indicates that the food access variable varies widely across census tracts within a state, while a lower standard deviation suggests that the variable is more consistent across census tracts. This information can be useful in identifying states or regions where food access is more or less uniform, and can help in identifying areas where interventions to improve food access may be most needed. 
 
 ```
 
@@ -336,5 +461,13 @@ tree_fit %>%
 
 ## Final Results 
 
+```{r}
+library(tidyverse)
+library(skimr)
+
+
+
+
+```
 
 ## Conclusion 
