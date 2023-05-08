@@ -53,6 +53,9 @@ library(sf)
 library(janitor) 
 library(stringr)
 library(RSocrata)
+library(stringr)
+library(mice)
+library(sp)
 
 ```
 
@@ -162,7 +165,7 @@ census <- st_read(dsn = "cb_2020_us_county_20m.shp")
 census <- census %>%
   st_set_crs(value = 4326) 
 
-# clean and prepocess dataset - remove missing values, outliers or irrelevant variables that may affect the anlaysis 
+
 ```
 
 ## Exploratory Data Analysis
@@ -253,20 +256,33 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
   labs(x = "State", y = "Standard Deviation of Food Access") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-#The standard deviation of food access by state will tell us the degree of variability of the food access variable across different census tracts within each state. A higher standard deviation indicates that the food access variable varies widely across census tracts within a state, while a lower standard deviation suggests that the variable is more consistent across census tracts. This information can be useful in identifying states or regions where food access is more or less uniform, and can help in identifying areas where interventions to improve food access may be most needed. 
-
 ```
+
+The standard deviation of food access by state will tell us the degree of variability of the food access variable across different census tracts within each state. A higher standard deviation indicates that the food access variable varies widely across census tracts within a state, while a lower standard deviation suggests that the variable is more consistent across census tracts. This information can be useful in identifying states or regions where food access is more or less uniform, and can help in identifying areas where interventions to improve food access may be most needed. 
+
 
 ## (Supervised) Machine Learning
 
 *Setting up the testing environment*
 
 ```{r}
+# separate geometry column into longitude and latitude and prepare it for recipe 
+combinedsep <- combined %>%
+  mutate(coordinates = st_coordinates(geometry),
+         longitude = coordinates[, "X"],
+         latitude = coordinates[, "Y"]) %>%
+  select(-coordinates)
+
+# to remove the geometry column from dataframe 
+combinedsep <- st_drop_geometry(combinedsep)
+combinedsep <- combinedsep[, !colnames(combinedsep) %in% "geometry"]
+
+# set seed
 set.seed(20230507)
 
 # split the data into training and testing sets 
-obesity_split <- initial_split(data = combined, 
-                               prop - 0.8)
+obesity_split <- initial_split(data = combinedsep, 
+                               prop = 0.8)
 
 obesity_train <- training(x = obesity_split)
 obesity_test <- testing(x = obesity_split)
@@ -275,10 +291,10 @@ obesity_test <- testing(x = obesity_split)
 folds <- vfold_cv(data = obesity_train, v = 10, repeats = 1)
 
 # create a recipe (need to look at what needs to be added)
-obesity_rec <- recipe(formula = , data = obesity_train) %>%
+obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
   step_naomit(all_predictors()) %>%
-  step_center(all_predictors()) %>%
   step_nzv(all_predictors()) %>%
+  step_scale(all_numeric())
 
 
 ```
