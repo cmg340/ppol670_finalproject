@@ -53,7 +53,8 @@ library(sf)
 library(janitor) 
 library(stringr)
 library(RSocrata)
-
+library(tidycensus)
+library(tigris)
 ```
 
 ## Reading in Data using APIs
@@ -114,7 +115,7 @@ fara <- clean_names(fara)
 
 
 # load the PLACES dataset
-places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")
+places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")%>% st_transform(value = 4326)
 
 places <- places %>%
   rename(census_tract = locationid)
@@ -134,6 +135,7 @@ places <- places %>%
 #Next, add this to measureid to distinguish between crude and age-adjusted estimates
 #places_tidy <- places_tidy %>%
   #mutate(measureid = str_c(measureid, data_value_type))
+
 #creating tidy dataset
 places_tidy <- places
 #Filtering observations to 2020 only
@@ -153,21 +155,45 @@ places_tidy <- places_tidy %>%
 # merge the data frames by census tract
 #swapped places and fara so that the combined dataset only has census tracts that are in fara
 combined <- right_join(places_tidy, fara,
-                      by = "census_tract") 
+                      by = "census_tract")
 
-# Read in the shapefile
-census <- st_read(dsn = "cb_2020_us_county_20m.shp")
+# Read in the shapefile - opting for tidy census here
+load_dot_env(here(".env"))
+
+
+census_api_key("census_api_key", install = T, overwrite=TRUE)
+
+options(tigris_use_cache = TRUE)
+
+allstates <- c(state.abb)
+allstates
+
+census <- get_acs(state = allstates ,
+                  geography = "tract", 
+                  variables =  "B19013_001",
+                  geometry = TRUE,
+                  year = 2019)%>%
+  rename(census_tract = GEOID)%>%
+  st_transform(crs = st_crs(4326))
+  
+
 
 #binding census shapefile to this dataset
-census <- census %>%
-  st_set_crs(value = 4326) 
+combined_nonsf <- combined %>% st_transform(crs = st_crs(4326))
+combined_census <- st_join(census, combined_nonsf, join = st_intersects)%>%
 
-# clean and prepocess dataset - remove missing values, outliers or irrelevant variables that may affect the anlaysis 
+
+#NO LONGER NEEDED BELOW THIS CODEBLOCK
+#census <- st_read(dsn = "cb_2020_us_county_20m.shp")
+#census <- census %>%
+ # st_set_crs(value = 4326) 
+
+# clean and preprocess dataset - remove missing values, outliers or irrelevant variables that may affect the analysis 
 ```
 
 ## Exploratory Data Analysis
 
-Use EDA to to understand the distribution of the variables and identify patterns or relationships. Use things like scatter plots or correlation matrices to visualise the relationship between obesity prevalence and other factors like food access, income, or education
+Use EDA to to understand the distribution of the variables and identify patterns or relationships. Use things like scatter plots or correlation matrices to visualize the relationship between obesity prevalence and other factors like food access, income, or education
 
 ```{r}
 glimpse(combined)
@@ -254,6 +280,19 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 #The standard deviation of food access by state will tell us the degree of variability of the food access variable across different census tracts within each state. A higher standard deviation indicates that the food access variable varies widely across census tracts within a state, while a lower standard deviation suggests that the variable is more consistent across census tracts. This information can be useful in identifying states or regions where food access is more or less uniform, and can help in identifying areas where interventions to improve food access may be most needed. 
+
+```
+
+```{r}
+
+
+obesity_tracts <-  ggplot()+
+  geom_sf(data = combined_census, 
+          aes(fill = OBESITY))+
+  labs(title = "Obesity by census tract in the US")+
+  theme_void()
+
+obesity_tracts
 
 ```
 
