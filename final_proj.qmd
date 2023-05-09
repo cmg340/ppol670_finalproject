@@ -180,15 +180,9 @@ census <- get_acs(state = allstates ,
 
 #binding census shapefile to this dataset
 combined_nonsf <- combined %>% st_transform(crs = st_crs(4326))
-combined_census <- st_join(census, combined_nonsf, join = st_intersects)%>%
+combined_census <- st_join(census, combined_nonsf, join = st_intersects)
 
 
-#NO LONGER NEEDED BELOW THIS CODEBLOCK
-#census <- st_read(dsn = "cb_2020_us_county_20m.shp")
-#census <- census %>%
- # st_set_crs(value = 4326) 
-
-# clean and preprocess dataset - remove missing values, outliers or irrelevant variables that may affect the analysis 
 ```
 
 ## Exploratory Data Analysis
@@ -284,16 +278,29 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
 ```
 
 ```{r}
+glimpse(combined_census)
+combined_census <- combined_census %>% clean_names()%>% filter()
+
+# Bin the number of homicides into groups 
+breaks <- c(0, 10, 20, 30, 40, 50, 60, 70)
+
+combined_census <- combined_census %>%
+  mutate(obesity_num = as.numeric(obesity),
+         obesity_bin = cut(obesity_num, breaks = 10))
+  
 
 
 obesity_tracts <-  ggplot()+
   geom_sf(data = combined_census, 
-          aes(fill = OBESITY))+
-  labs(title = "Obesity by census tract in the US")+
+          aes(fill = obesity_bin),
+          lwd = 0,
+          color = NA)+
+  labs(title = "Adult obesity rate by census tract in the US")+
+  coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
   theme_void()
 
 obesity_tracts
-
+obesity_states
 ```
 
 ## (Supervised) Machine Learning
