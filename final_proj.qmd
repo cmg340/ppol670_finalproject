@@ -56,6 +56,9 @@ library(RSocrata)
 library(stringr)
 library(mice)
 library(sp)
+library(tidyr)
+library(caret)
+library(patchwork)
 
 ```
 
@@ -90,7 +93,6 @@ app_token <- Sys.getenv("PLACES_app_token")
 user_name <- Sys.getenv("PLACES_username")
 password <- Sys.getenv("PLACES_password")
 
-
 #PLACES dataset
 
 places <- read.socrata(
@@ -115,7 +117,6 @@ fara <- read_excel("fara_2019.xlsx")
 # clean the variable names 
 fara <- clean_names(fara)
 
-
 # load the PLACES dataset
 places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")
 
@@ -129,19 +130,24 @@ places <- places %>%
 #between the age adjusted and crude estimates before turning measureid values into columns
 #start by simplifying data_value_type, crude is represented by C and adjusted by A
 #When I got the right dataset, this step wasn't actually needed
+
 #places_tidy <- places %>%
   #mutate(data_value_type = case_when(
     #data_value_type == "Crude prevalence" ~ "C",
     #data_value_type == "Age-adjusted prevalence" ~ "A"
   #))
+
 #Next, add this to measureid to distinguish between crude and age-adjusted estimates
 #places_tidy <- places_tidy %>%
   #mutate(measureid = str_c(measureid, data_value_type))
+
 #creating tidy dataset
 places_tidy <- places
+
 #Filtering observations to 2020 only
 places_tidy <- places %>%
   filter(year == 2020)
+
 #There are a number of columns that are not necessary, they need to be dropped as well
 places_tidy <- places_tidy %>%
   dplyr::select(-(c(statedesc, datasource, category, measure, data_value_unit,
@@ -149,10 +155,12 @@ places_tidy <- places_tidy %>%
           categoryid, datavaluetypeid, short_question_text, countyfips, 
           locationname, data_value_footnote, data_value_footnote_symbol,
           )))
+
 #Finally, we can pivot this dataset to wide format
 places_tidy <- places_tidy %>%
   pivot_wider(names_from = "measureid",
               values_from = "data_value")
+
 # merge the data frames by census tract
 #swapped places and fara so that the combined dataset only has census tracts that are in fara
 combined <- right_join(places_tidy, fara,
@@ -174,12 +182,14 @@ Use EDA to to understand the distribution of the variables and identify patterns
 
 ```{r}
 glimpse(combined)
+
 #A ton of our numeric variables are stored as character variables, they need to be converted to numeric variables
 to_convert <- colnames(select_if(combined, is.character))
 to_convert <- to_convert[!to_convert %in% c("census_tract", "countyname", "year", "stateabbr", "geometry")]
 to_convert <- unlist(to_convert)
 combined <- combined %>%
   mutate_at(to_convert, as.numeric)
+
 #some of these numerics need to be converted to factors
 factors <- c("urban", "group_quarters_flag", "lila_tracts_1and10", "lila_tracts_half_and10",
             "lila_tracts_vehicle", "hunv_flag", "low_income_tracts",
@@ -215,12 +225,14 @@ eda_point(combined, poverty_rate, OBESITY, urban)
 ggplot(combined, aes(x = urban, y = OBESITY)) +
   geom_boxplot() +
   labs(x = "Urban/Rural", y = "Obesity Prevalence")
+
 #While the average obesity rate is higher in rural areas, urban areas have higher variability of of data.
 
 #scatter plot to explore the relationship between obesity prevalence and poverty rate
 ggplot(combined, aes(x = poverty_rate, y = OBESITY)) +
   geom_point() +
   labs(x = "Poverty Rate", y = "Obesity Prevalence")
+
 #Unsurprisingly, as the poverty rate increases, obesity rates increase as well.
 
 #chloropleth map of obesity - need to set the data
@@ -267,15 +279,19 @@ The standard deviation of food access by state will tell us the degree of variab
 
 ```{r}
 # separate geometry column into longitude and latitude and prepare it for recipe 
-combinedsep <- combined %>%
-  mutate(coordinates = st_coordinates(geometry),
-         longitude = coordinates[, "X"],
-         latitude = coordinates[, "Y"]) %>%
-  select(-coordinates)
+
+combinedsmall <- combined %>%
+  select(census_tract, COPD, OBESITY, STROKE, DEPRESSION, LPA, CASTHMA, MAMMOUSE, TEETHLOST, ARTHRITIS, COREM, DIABETES, BINGE, SLEEP, ACCESS2, PHLTH, DENTAL, MHLTH, CANCER, CHD, GHLTH, CHECKUP, CSMOKING, CERVICAL, KIDNEY, COLON_SCREEN, COREW, urban, median_family_income, la1and10, lalowi1share, lakids1share, laseniors1share, lahunv1share)
+
+combinedsep <- combinedsmall %>%
+  mutate(longitude = st_coordinates(geometry)[, "X"],
+         latitude = st_coordinates(geometry)[, "Y"]) 
 
 # to remove the geometry column from dataframe 
 combinedsep <- st_drop_geometry(combinedsep)
-combinedsep <- combinedsep[, !colnames(combinedsep) %in% "geometry"]
+
+# convert all variables to numeric
+combinedsep$urban <- as.numeric(as.character(combinedsep$urban))
 
 # set seed
 set.seed(20230507)
@@ -288,118 +304,255 @@ obesity_train <- training(x = obesity_split)
 obesity_test <- testing(x = obesity_split)
 
 # set up v-fold cross validation 
-folds <- vfold_cv(data = obesity_train, v = 10, repeats = 1)
+folds <- vfold_cv(data = obesity_train, v = 5, repeats = 1)
 
 # create a recipe (need to look at what needs to be added)
 obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
+  step_other(census_tract) %>%
   step_naomit(all_predictors()) %>%
-  step_nzv(all_predictors()) %>%
-  step_scale(all_numeric())
-
+  step_center(all_numeric_predictors()) %>%
+  step_scale(all_numeric_predictors()) %>%
+  step_dummy(census_tract)
 
 ```
 
-**Linear Regression (or any other) Model**
+**Linear Regression**
 
 ```{r}
 
-# create model
+# create a linear regression model using the "lm" package as the engine
 lm_mod <- linear_reg() %>%
-  set_engine("lm") %>%
-  set_mode(mode = "regression")
+  set_engine("lm")
 
-# set up workflow 
+# create a workflow with the recipe and linear regression model you've created
 lm_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
-  add_model(lm_mod)
+  add_model(lm_mod) 
 
-# use resamples 
+# fit the model by piping your workflow
 lm_cv <- lm_wf %>%
-  fit_resamples(resamples = folds,
-                metrics = metric_set(rmse, mae))
+  fit_resamples(resamples = folds)
 
-# collect metrics and find the best model
+# select the best model based on the "rmse" metric
 lm_best <- lm_cv %>%
-  select_best(metric = "rmse")
+  select_best("rmse")
 
-lm_final <- lm_wf %>%
-  finalize_workflow(parameters = lm_best)
+# use the finalize_workflow() function with your workflow and the best model 
+# to update (or "finalize") your workflow by modifying the line below
+lm_final <- finalize_workflow(
+  lm_wf,
+  parameters = lm_best
+)
 
-collect_metrics(lm_cv, summarize = TRUE)
-
-# fit the model
-lm_fit <- lm_final %>%
-  fit(obesity_train)
-
-# evaluate its performance using MSE or accuracy
-
-collect_metrics(lm_cv, summarize = FALSE) %>%
-  filter(.metric == "rmse") %>%
-  ggplot(mapping = aes(x = id, y = .estimate, group = .estimator, label = round(.estimate, digits = 2))) +
-  geom_line() +
-  geom_point() +
-  geom_label(nudge_y = -500) +
-  scale_y_continuous(limits = c(10000, 17500)) +
-  labs(title = "Obesity: Linear Regression Model (RMSE Across 10 Folds)", 
-       y = "Predicted RMSE",
-       x = "Fold Number") +
-  theme_minimal()
+# fit to the training data and extract coefficients
+lm_coefs <- lm_final %>%
+  fit(data = obesity_train) %>%
+  extract_fit_parsnip() %>%
+  vi(lambda = lasso_best$penalty)
 
 ```
 
-**KNN Model**
+**LASSO Model**
 
 ```{r}
-knn_mod <- nearest_neighbor(neighbors = tune()) %>%
-  set_engine(engine = "kknn") %>%
-  set_mode(mode = "regression")
+# create a tuning grid for lasso regularization, varying the regularization penalty
+lasso_grid <- grid_regular(penalty(), levels = 10)
 
-# set up workflow
-knn_workflow <- 
-  workflow() %>%
-  add_model(spec = knn_mod) %>%
-  add_recipe(recipe = obesity_rec)
+# create a linear_regression model so that you can tune the penalty parameter
+# set the mixture parameter to 1 and use "glmnet" for the engine
+lasso_mod <- linear_reg(
+  penalty = tune(), 
+  mixture = 1
+) %>%
+  set_engine("glmnet")
 
-# create a tuning grid 
-knn_grid <- grid_regular(neighbors(range = c(1, 15)), levels = 8)
+# create a workflow using your updated linear regression model you just created and the same recipe
+# you defined above
+lasso_wf <- workflow() %>%
+  add_recipe(obesity_rec) %>%
+  add_model(lasso_mod) 
 
-# fitting model to the training data 
-knn_res <- 
-  knn_workflow %>%
-  tune_grid(resamples = folds,
-            grid = knn_grid,
-            control = control_grid(save_pred = TRUE),
-            metrics = metric_set(rmse, mae))
+# perform hyperparameter tuning using the lasso_grid and the 
+# cross_validation folds you created above by modifying the line below
+lasso_cv <- lasso_wf %>%
+  tune_grid(
+    resamples = folds,
+    grid = lasso_grid
+  )
 
-# collecting the metrics and determining the best model
-knn_best <- knn_res %>%
+# select the best model based on the "rmse" metric
+lasso_best <- lasso_cv %>%
   select_best(metric = "rmse")
 
-# finalize workflow 
-knn_final <- knn_workflow %>%
-  finalize_workflow(parameters = knn_best)
+# use the finalize_workflow() function with your lasso workflow and the best model 
+# to update (or "finalize") your workflow by modifying the line below
+lasso_final <- finalize_workflow(
+  lasso_wf,
+  parameters = lasso_best
+)
 
-# fit model 
-knn_fit <- knn_final %>%
-  fit(obesity_train)
+# fit to the training data and extract coefficients
+lasso_coefs <- lasso_final %>%
+  fit(data = obesity_train) %>%
+  extract_fit_parsnip() %>%
+  vi(lambda = lasso_best$penalty) 
 
-knn_fit_rs <- knn_final %>%
-  fit_resamples(resamples = folds)
+```
 
-# evaluate the model
-collect_metrics(knn_res, summarize = FALSE) %>%
-  filter(.metric == "rmse") %>%
-  ggplot(mapping = aes(x = id, y = .estimate, group = .estimator, label = round(.estimate, digits = 2))) +
-  geom_line() +
-  geom_point() +
-  geom_label(nudge_y = -500) +
-  scale_y_continuous(limits = c(10000, 17500)) +
-  labs(title = "Obesity: KNN Model (RMSE Across 10 Folds)", 
-       y = "Predicted RMSE",
-       x = "Fold Number") +
-  theme_minimal()
+**Ridge Model**
+
+```{r}
+
+# create a tuning grid for ridge regularization, varying the regularization penalty
+ridge_grid <- grid_regular(penalty(), levels = 10)
+
+# create a linear_regression model so that you can tune the penalty parameter
+ridge_mod <- linear_reg(
+  penalty = tune(), 
+  mixture = 0
+) %>%
+  set_engine("glmnet")
+
+# create a ridge workflow using your updated linear regression model you just created and 
+# the same recipe you defined above
+ridge_wf <- workflow() %>%
+  add_recipe(obesity_rec) %>%
+  add_model(ridge_mod)
+
+# perform hyperparameter tuning using the on your ridge hyperparameter grid and
+# cross_validation folds you created above by modifying the line below
+# use the tune_grid() function
+ridge_cv <- ridge_wf %>%
+  tune_grid(
+    resamples = folds,
+    grid = ridge_grid
+  )
+
+# select the best model based on the "rmse" metric
+ridge_best <- ridge_cv %>%
+  select_best(metric = "rmse")
+
+# use the finalize_workflow() function with your ridge workflow and the best model 
+# to update (or "finalize") your workflow
+ridge_final <- finalize_workflow(
+  ridge_wf,
+  parameters = ridge_best
+)
+
+# fit the final ridge model to the full training data and extract coefficients
+# by updating the line below
+ridge_coefs <- ridge_final %>%
+  fit(data = obesity_train) %>%
+  extract_fit_parsnip() %>%
+  vi(lambda = ridge_best$penalty) 
+
+```
+
+**Elastic Net**
+
+```{r}
+# create a tuning grid for elastic net regularization, varying the regularization penalty
+elastic_net_grid <- grid_regular(penalty(), levels = 10)
+
+# create a linear_regression model so that you can tune the penalty parameter
+# and use "glmnet" for the engine. If you set mixture = 1 for lasso regression above,
+# and mixture = 0 for ridge regression, what should you set mixture equal to for elastic net?
+elastic_net_mod <- linear_reg(
+  penalty = tune(), 
+  mixture = 0.5) %>%
+  set_engine("glmnet")
+
+# create an elastic net workflow using your updated linear regression model you just created and 
+# the same recipe you defined above
+elastic_net_wf <- workflow() %>%
+  add_recipe(obesity_rec) %>%
+  add_model(elastic_net_mod)
+
+# perform hyperparameter tuning using the on your elastic net hyperparameter grid and
+# cross_validation folds you created above by modifying the line below
+elastic_net_cv <- elastic_net_wf %>%
+  tune_grid(
+    resamples = folds,
+    grid = elastic_net_grid)
+
+# select the best model based on the "rmse" metric
+elastic_net_best <- elastic_net_cv %>%
+  select_best(metric = "rmse")
+
+# use the finalize_workflow() function with your elastic net workflow and the best model 
+# to update (or "finalize") your workflow
+elastic_net_final <- finalize_workflow(
+  elastic_net_wf,
+  parameters = elastic_net_best)
+
+# fit the final elastic net model to the full training data and extract coefficients
+# by updating the line below
+elastic_net_coefs <- elastic_net_final %>%
+  fit(data = obesity_train) %>%
+  extract_fit_parsnip() %>%
+  vi(lambda = elastic_net_best$penalty)
+
+```
+
+## Compare Models
+
+```{r}
+# the models are comparable for prediction accuracy
+bind_rows(
+  `lm` = show_best(lm_cv, metric = "rmse", n = 1),
+  `LASSO` = show_best(lasso_cv, metric = "rmse", n = 1),
+  `ridge` = show_best(ridge_cv, metric = "rmse",n = 1),
+  `enet` = show_best(elastic_net_cv, metric = "rmse", n = 1),
+  .id = "model"
+)
+
+all_coefs <- bind_rows(
+  `lm` = lm_coefs,
+  `LASSO` = lasso_coefs,
+  `ridge` = ridge_coefs,
+  `enet` = elastic_net_coefs,
+  .id = "model"
+) 
+
+all_coefs %>%
+  group_by(model) %>%
+  slice_max(Importance, n = 10) %>%
+  ggplot(aes(Importance, Variable, fill = model)) +
+  geom_col(position = "dodge")
+
+all_coefs %>%
+  filter(model != "lm") %>%
+  group_by(model) %>%
+  slice_max(Importance, n = 10) %>%
+  ggplot(aes(Importance, Variable, fill = model)) +
+  geom_col(position = "dodge")
 
 
+# compare the regularized coefficients to the lm coefficients for all three models
+plot1 <- left_join(
+  rename(lm_coefs, lm = Importance),
+  rename(lasso_coefs, LASSO = Importance),
+  by = "Variable"
+) %>%
+  ggplot(aes(lm, LASSO)) +
+  geom_point(alpha = 0.3)
+
+plot2 <- left_join(
+  rename(lm_coefs, lm = Importance),
+  rename(ridge_coefs, ridge = Importance),
+  by = "Variable"
+) %>%
+  ggplot(aes(lm, ridge)) +
+  geom_point(alpha = 0.3)
+
+plot3 <- left_join(
+  rename(lm_coefs, lm = Importance),
+  rename(elastic_net_coefs, enet = Importance),
+  by = "Variable") %>%
+  ggplot(aes(lm, enet)) +
+  geom_point(alpha = 0.3)
+
+plot1 + plot2 + plot3
 ```
 
 **Decision Tree Model**
