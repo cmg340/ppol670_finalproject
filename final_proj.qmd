@@ -262,7 +262,18 @@ eda_point(CHECKUP, "Frequency of Health Checkups")
 
 These plots reveal a number of insights about our data. While the average obesity rate is higher in rural areas, urban areas have higher variability of data. Unsurprisingly, as the poverty rate increases, obesity rates increase as well. The next graph reflects this as well, showing that obesity declines as median family income increases. As expected, poor mental health also has a positive correlation with obesity prevalence. Regular health checkups, however, do not have a clear relationship with obesity. Furthermore, there is a much wider dispersion of rural census tracts in this plot as well.
 
+It is also useful to look at data variability in urban and rural areas. While the average obesity rate is higher in rural areas, urban areas have higher variability of data. 
+```{r}
+# boxplot to compare the distribution of obesity prevalence between urban and rural areas
+ggplot(combined, aes(x = urban, y = OBESITY)) +
+  geom_boxplot() +
+  labs(x = "Rural/Urban", y = "Obesity Prevalence")
+
+```
+
+
 **Summary Statistics by State**
+Exploration by state highlights the importance of exploring these data by census tract instead of state. Exploring by state would be misleading.
 
 ```{r}
 # Calculate summary statistics by state
@@ -304,12 +315,8 @@ eda_bar(sd_food_access, "Standard Deviation of Food Access")
 
 ```
 
-```{r}
-# boxplot to compare the distribution of obesity prevalence between urban and rural areas
-ggplot(combined, aes(x = urban, y = OBESITY)) +
-  geom_boxplot()
+Based on the graphs above, we can determine generally that southern states have the highest rates of obesity. HI has the lowest rate of obesity. DC has the highest median income and MS has the lowest. Most states have a high degree of variability which suggests that food access varies widely across census tracts within a state.
 
-```
 
 **Spread of obesity prevalance across the United States**
 
