@@ -69,6 +69,7 @@ library(purrr)
 options(tigris_use_cache = TRUE)
 library(RColorBrewer)
 library(ggiraph)
+library(mapview)
 ```
 
 ## Reading in Data using APIs
@@ -339,12 +340,21 @@ obesity_tracts <-  ggplot(combined_census) +
 
 obesity_tracts
 
+
+
+interactivemapdata <- combined_census %>% select(name, state, census_tract_x, obesity_num, median_family_income, csmoking, teethlost, maptext) 
+
+
+ interactivemapdata %>% mapview(zcol = "obesity_num",
+          map.types = "Esri.NatGeoWorldMap",
+          col.regions = brewer.pal(8, "RdYlGn"),
+          color = NA)
+
 ```
 
 ```{r}
 #| eval: false
-#ignoring this block for now since it doesn't work yet
-#interactive map attempt - this isn't working yet
+#this codeblock is an interactive map of obesity by census tract that includes some other information that can pop up when hovering over each tract. While the code runs, it takes a very long time to run so we have chosen not to evaluate it here. 
 obesity_tracts_int <-  ggplot()+
   geom_sf_interactive(data = combined_census, 
           aes(fill = obesity_bin,
@@ -352,25 +362,16 @@ obesity_tracts_int <-  ggplot()+
           tooltip = maptext),
           lwd = 0,
           color = NA)+
-  scale_fill_brewer(palette = "RdYlGn", direction  = -1)+
+
+  scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill", guide = "none")+
   labs(title = "Adult obesity rate by census tract in the US")+
-  coord_sf(xlim = c(-160, -64),
-           ylim = c(18,72), 
-           crs = 4326) +
+  coord_sf(xlim=c(-160, -64),ylim=c(-30,72), crs = 4326) +
   theme_void()
 
 girafe(ggobj = obesity_tracts_int) %>%
-  girafe_options(opts_hover(css = "fill:blue;"), 
-                 opts_sizing(rescale = TRUE, 
-                             width = 1))
+  girafe_options(opts_hover(css = "fill:blue;"), opts_sizing(rescale = TRUE))
 
-install.packages("mapview")
-library(mapview)
 
-combined_census %>% 
-  select(name, obesity_bin, median_family_income, csmoking, teethlost) %>%
-  mapview(zcol = "obesity_bin",
-          map.types = "Esri.NatGeoWorldMap")
 
 ```
 
@@ -383,6 +384,7 @@ combined_census %>%
 # separate geometry column into longitude and latitude, and reduce the number of variables to prepare it for recipe 
 combinedsmall <- combined %>%
   select(census_tract, COPD, OBESITY, STROKE, DEPRESSION, LPA, CASTHMA, TEETHLOST, ARTHRITIS, DIABETES, BINGE, SLEEP, ACCESS2, PHLTH, DENTAL, MHLTH, CANCER, CHD, GHLTH, CHECKUP, CSMOKING, CERVICAL, KIDNEY, COLON_SCREEN, COREW, urban, median_family_income, la1and10, lalowi1share, lakids1share, laseniors1share, lahunv1share)
+
 
 combinedsep <- combinedsmall %>%
   mutate(longitude = st_coordinates(geometry)[, "X"],
@@ -645,7 +647,7 @@ plot1 + plot2 + plot3
 ```
 
 **Decision Tree Model**
-
+This is a tree model. The first model is not tuned and the second model is tuned using the same cross-folds as the above models, but does not show an improvement in rmse compared to the non-tuned model. This model was interesting to examine to understand what factors the model considers as driving obesity rates more than others. As you can see in the variable importance plot below, current smoking rates, lost teeth rates, "general health", low rates of no liesure-time physical activity and physical health as relatively important variables in predicting obesity rates. Median family income was also in the top 10 of important variables. 
 ```{r}
 # create a model
 tree_mod <- 
@@ -684,8 +686,13 @@ predictions <- predictions %>%
   sqerror = error^2
 )
 
-rmse_tree <- sqrt(mean(predictions$error^2))
+
+#calculating rmse on non-tuned model
+
+rmse_tree <- sqrt(mean(predictions$sqerror))
 rmse_tree
+
+
 
 # variable importance
 tree_fit %>% 
@@ -738,7 +745,9 @@ rmse_prunedtree
 
 In order to pick the best model, we consider the RMSE as the metric used for evaluation, the mean value of the metric across the folds, and the standard error of the metric. Generally, we want to choose the model that has the lowest value of the metric, as this indicates better performance on the test data.
 
-The RMSE values for lm, LASSO, and enet are all the same at 2.55. However, the ridge model has a slightly higher RMSE of 2.69. This suggests that the lm, LASSO, and enet models may be better choices than the ridge model.
+
+The RMSE values for lm, LASSO, and enet are all the same at 2.55. However, the ridge model has a slightly higher RMSE of 2.69 and the decision tree model has an rmse of 3.96. This suggests that the lm, LASSO, and enet models may be better choices than the ridge model.
+
 
 Additionally, we consider the standard error of the metric. The standard error gives an estimate of the precision of the mean estimate, with a lower value indicating more precision. In our case, we can see that the standard errors for all models are quite small, indicating that the mean estimates are likely quite precise.
 
