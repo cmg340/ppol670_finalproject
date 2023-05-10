@@ -55,11 +55,15 @@ library(stringr)
 library(RSocrata)
 library(tidycensus)
 library(tigris)
+options(tigris_use_cache = TRUE)
+library(RColorBrewer)
+
 ```
 
 ## Reading in Data using APIs
 
 ```{r}
+#| eval: false
 #accessing FARA data through ArcGIS REST API
 ## to write this code I consulted this blog post: https://community.esri.com/t5/gis-blog/accessing-arcgis-rest-services-using-r/ba-p/898451
 
@@ -79,6 +83,7 @@ foodaccess <- st_read(request) ## this should create a full dataframe but is obv
 ```
 
 ```{r}
+#| eval: false
 #install.packages("RSocrata")
 library(RSocrata) ## the Rsocrata package has to be loaded in after httr package for the above code to work 
 
@@ -279,15 +284,14 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
 
 ```{r}
 glimpse(combined_census)
-combined_census <- combined_census %>% clean_names()%>% filter()
+combined_census <- combined_census %>% clean_names()
 
-# Bin the number of homicides into groups 
-breaks <- c(0, 10, 20, 30, 40, 50, 60, 70)
-
+#binning obesity rates
 combined_census <- combined_census %>%
   mutate(obesity_num = as.numeric(obesity),
          obesity_bin = cut(obesity_num, breaks = 10))
   
+
 
 
 obesity_tracts <-  ggplot()+
@@ -295,12 +299,15 @@ obesity_tracts <-  ggplot()+
           aes(fill = obesity_bin),
           lwd = 0,
           color = NA)+
+  scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill")+
   labs(title = "Adult obesity rate by census tract in the US")+
   coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
   theme_void()
 
+
 obesity_tracts
-obesity_states
+
+scale_fill_brewer(palette = "RdYlGn", aesthetics = "fill")
 ```
 
 ## (Supervised) Machine Learning
@@ -308,23 +315,42 @@ obesity_states
 *Setting up the testing environment*
 
 ```{r}
+
+# separate geometry column into longitude and latitude and prepare it for recipe 
+combinedsmall <- combined %>%
+  select(census_tract, COPD, OBESITY, STROKE, DEPRESSION, LPA, CASTHMA, TEETHLOST, ARTHRITIS, DIABETES, BINGE, SLEEP, ACCESS2, PHLTH, DENTAL, MHLTH, CANCER, CHD, GHLTH, CHECKUP, CSMOKING, CERVICAL, KIDNEY, COLON_SCREEN, COREW, urban, median_family_income, la1and10, lalowi1share, lakids1share, laseniors1share, lahunv1share)
+
+combinedsep <- combinedsmall %>%
+  mutate(longitude = st_coordinates(geometry)[, "X"],
+         latitude = st_coordinates(geometry)[, "Y"]) 
+
+# to remove the geometry column from dataframe 
+combinedsep <- st_drop_geometry(combinedsep)
+
+# convert all variables to numeric
+combinedsep$urban <- as.numeric(as.character(combinedsep$urban))
+
+# set seed
 set.seed(20230507)
 
 # split the data into training and testing sets 
-obesity_split <- initial_split(data = combined, 
-                               prop - 0.8)
+obesity_split <- initial_split(data = combinedsep, 
+                               prop = 0.8)
 
 obesity_train <- training(x = obesity_split)
 obesity_test <- testing(x = obesity_split)
 
 # set up v-fold cross validation 
-folds <- vfold_cv(data = obesity_train, v = 10, repeats = 1)
+folds <- vfold_cv(data = obesity_train, v = 5, repeats = 1)
 
 # create a recipe (need to look at what needs to be added)
-obesity_rec <- recipe(formula = , data = obesity_train) %>%
+obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
+  step_other(census_tract) %>%
   step_naomit(all_predictors()) %>%
-  step_center(all_predictors()) %>%
-  step_nzv(all_predictors()) %>%
+  step_center(all_numeric_predictors()) %>%
+  step_scale(all_numeric_predictors()) %>%
+  step_dummy(census_tract)
+
 
 
 ```
@@ -439,62 +465,39 @@ collect_metrics(knn_res, summarize = FALSE) %>%
 tree_mod <- 
   decision_tree() %>%
   set_engine(engine = "rpart") %>%
-  set_mode(mode = "classification")
+  set_mode(mode = "regression")
 
 # create a workflow
 tree_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(tree_mod)
 
-# resampling 
-tree_cv <- tree_wf %>%
-  fit_resamples(resamples = folds)
 
-# use RMSE to choose the best model 
-tree_best <- tree_cv %>%
-  select_best(metric = "rmse")
-
-# finalise workflow 
-tree_final <- tree_wf %>%
-  finalize_workflow(parameters = tree_best)
 
 # fit model to the training set 
 tree_fit <- tree_wf %>%
   fit(data = obesity_train)
 
 # create a tree 
-rpart.plot::rpart.plot(x = obesity_fit$fit$fit$fit, roundint = FALSE)
+rpart.plot::rpart.plot(x = tree_fit$fit$fit$fit, roundint = FALSE)
 
-# making predictions on the test dataset
+
+#make predictions on train data
 predictions <- bind_cols(
-  obesity_test,
-  predict(object = obesity_fit, new_data = obesity_test),
-  predict(object = obesity_fit, new_data = obesity_test, type = "prob")
+  obesity_train,
+  predict(object = tree_fit, new_data = obesity_train)
 )
 
-#comparing tree predictions to true values
-conf_mat(data = predictions, 
-         truth = grade,
-         estimate = .pred_class)
+pred_tree <- predict(object = tree_fit, new_data = obesity_train) 
 
-#calculating accuracy, recall, and precision
-accuracy <- accuracy(data = predictions,
-                     truth = grade,
-                     estimate = .pred_class)
+#evaluating model
+predictions <- predictions %>% drop_na(OBESITY, .pred) %>% mutate(
+  error = .pred - OBESITY,
+  sqerror = error^2
+)
 
-
-precision <- yardstick::precision(data = predictions,
-                                  truth = grade,
-                                  estimate = .pred_class)
-
-recall <- yardstick::recall(data = predictions,
-                            truth = grade,
-                            estimate = .pred_class)
-
-print(c("the model accuracy is:", round(accuracy$.estimate, digits = 3)))
-print(c("the model precision is:", round(precision$.estimate, digits = 3)))
-
-print(c("the model recall is:", round(recall$.estimate, digits = 3)))
+mse_tree <- mean(predictions$sqerror)
+mse_tree
 
 
 # variable importance
@@ -502,6 +505,94 @@ print(c("the model recall is:", round(recall$.estimate, digits = 3)))
 tree_fit %>% 
   extract_fit_parsnip() %>% 
   vip(num_features = 10)
+
+#tuning tree
+gridval <- 10
+
+tree_res <- tree_wf %>%
+  tune_grid(resample = folds, grid = gridval,
+            control=control_grid(save_pred = TRUE))
+
+
+
+tree_best <- tree_res %>%
+  select_best(metric = "rmse")
+
+
+tree_tuned <- tree_wf %>%
+  finalize_workflow(parameters = tree_best)
+
+
+tree_final  <-  fit( tree_tuned, obesity_train)
+
+
+# variable importance
+
+tree_final %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 10)
+
+#predictions with tuned model
+
+newpredictions <- bind_cols(
+  obesity_test,
+  predict(tree_final, obesity_test)
+)
+
+
+#evaluating model
+newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
+  error = .pred - OBESITY,
+  sqerror = error^2
+)
+
+mse_prunedtree <- mean(newpredictions$sqerror)
+mse_prunedtree
+
+
+#was having trouble testing this model - after the above the RMSE is the same, below is my first attempt to tune the model
+```
+
+```{r}
+
+#| eval: false
+# first attempt to tune tree -- did not go well
+fit.tree = rpart(OBESITY ~ ., data=obesity_train, method = "anova", cp=0.00009)
+fit.tree
+
+printcp(fit.tree)
+
+bestcp <- fit.tree$cptable[which.min(fit.tree$cptable[,"xerror"]),"CP"]
+bestcp
+
+#best cp has xerror of  0.28414
+
+#prune the tree
+pruned.tree <- prune(fit.tree, cp = bestcp)
+
+#plot the pruned tree
+rpart.plot(pruned.tree)
+
+
+# variable importance in pruned tree
+pruned.tree$variable.importance
+
+#predictions with pruned tree
+
+newpredictions <- bind_cols(
+  obesity_test,
+  predict( pruned.tree, nobesity_test)
+)
+
+#evaluating model
+newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
+  error = .pred - OBESITY,
+  sqerror = error^2
+)
+
+mse_prunedtree <- mean(newpredictions$sqerror)
+mse_prunedtree
+
 
 ```
 
