@@ -1,6 +1,6 @@
-This is the repository for PPOL 670 - Introduction to Data Science's final project.
+**This is the repository for PPOL 670 - Introduction to Data Science's final project.**
 
-Authors: Elena Spielmann, Leanne Chook, Maeve Grady and Patrick Jones
+*Authors: Elena Spielmann, Leanne Chook, Maeve Grady and Patrick Jones*
 
 Obesity has reached epidemic proportions in the United States, and affects people of all ages, socioeconomic backgrounds and ethnicities, which imposes substantial economic burdens in the form of productivity losses, strains to the healthcare system and costs. 
 
