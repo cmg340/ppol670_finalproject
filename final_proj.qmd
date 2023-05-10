@@ -10,7 +10,7 @@ execute:
   warning: false
   error: false
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 ## Introduction 
 
@@ -318,7 +318,7 @@ eda_bar(sd_food_access, "Standard Deviation of Food Access")
 Based on the graphs above, we can determine generally that southern states have the highest rates of obesity. HI has the lowest rate of obesity. DC has the highest median income and MS has the lowest. Most states have a high degree of variability which suggests that food access varies widely across census tracts within a state.
 
 
-**Spread of obesity prevalance across the United States**
+**Spread of obesity prevalence across the United States**
 
 ```{r}
 combined_census <- combined_census %>% 
@@ -767,6 +767,8 @@ Additionally, we consider the standard error of the metric. The standard error g
 
 The two most important variables for each model are consistently diabetes and arthritis across the board with regard to obesity. Specifically, people with diabetes and arthritis may be more likely to develop obesity.
 
-Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero.
+Other factors such as income, having children, sleep, mental health, leisure-time physical activity, smoking, and binge drinking also play a role in predicting obesity. This indicates that obesity is a multifaceted issue that is influenced by various lifestyle and health-related factors. Thus, a comprehensive approach is needed to tackle the issue of obesity. Additionally, certain health issues such as cancer, overall poor health, heart disease, and kidney problems may not be predictors of obesity but rather can be consequences of it. This highlights the importance of early prevention and intervention to prevent obesity and its associated health complications.
+
+Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE (binge drinking) is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero.
 
 Therefore, it is likely that BINGE does not contribute much additional information in predicting obesity after accounting for the other predictors in the LASSO, ridge, and enet models. However, the lm model may be overfitting to BINGE due to the absence of regularization, which could explain why it is highly important in that model.
