@@ -173,9 +173,9 @@ combined <- right_join(places_tidy, fara,
                       by = "census_tract")
 
 # Read in the shapefile - opting for tidy census here
-load_dot_env(here(".env"))
+dotenv::load_dot_env()
 
-census_api_key("census_api_key", install = T, overwrite = TRUE)
+api_key <- Sys.getenv("CENSUS_API_KEY")
 
 options(tigris_use_cache = TRUE)
 
@@ -206,8 +206,6 @@ combined_census <- st_join(census, combined_nonsf, join = st_intersects)
 Before building models, our team conducted exploratory data analysis in order to identify variables of interest and their relationships with our outcome variable (obesity). An initial glimpse at our dataset revealed that a large number of numeric variables were coded as character variables, making them unsuitable for analysis and modeling. We identified and converted these variables to numeric format, while leaving character variables untouched. We recoded a number of binary variables as numeric rather than factors, as factors interfered with our models.
 
 ```{r}
-glimpse(combined)
-
 # A ton of our numeric variables are stored as character variables, they need to be converted to numeric variables
 to_convert <- colnames(select_if(combined, is.character))
 
@@ -217,9 +215,14 @@ to_convert <- unlist(to_convert)
 
 combined <- combined %>%
   mutate_at(to_convert, as.numeric)
+
 ```
 
-We continued exploring our data by creating a number of graphs of the relationships between variables of interest and obesity. To make this process easier, we wrote custom functions to make multiple plots.
+**Comparing Obesity Prevalence with Variables of Interest**
+
+We continued exploring our data by creating a number of graphs of the relationships between variables of interest and obesity. The variables of interest that we focused on are: 1) Poverty Rate; 2) Median Family Income; 3) Prevalence of Poor Mental Health; and 4) Frequency of Health Checkups.
+
+To make this process easier, we wrote custom functions to make multiple plots.
 
 ```{r}
 #' eda_point documentation
@@ -306,8 +309,6 @@ ggplot(combined, aes(x = urban, y = OBESITY)) +
 ```
 
 ```{r}
-glimpse(combined_census)
-
 combined_census <- combined_census %>% clean_names()%>% filter()
 
 breaks <- c(0, 10, 20, 30, 40, 50, 60, 70)
