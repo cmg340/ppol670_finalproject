@@ -32,7 +32,7 @@ This project will be as follows, first we will examine and clean up the availabl
 #install.packages("httr")
 library(httr)
 library(sf)
-#install.packages("tmap")
+#install.packages("ggiraph")
 library(tmap)
 library(dotenv)
 library(here)
@@ -57,10 +57,14 @@ library(tidycensus)
 library(tigris)
 options(tigris_use_cache = TRUE)
 library(RColorBrewer)
+library(ggiraph)
 
 ```
 
 ## Reading in Data using APIs
+This endeavor used both the CDC's PLACES dataset and the USDA's FARA dataset. The team attempted to read each dataset in using API query's (attempts below) but ran into limitations in the APIs and in technical experise. In the case of the FARA dataset, the API available is hosted through ESRI as an ArcGIS REST service. This means that the query must be read in through an st_read()command, which made it very difficult to troubeleshoot query errors. There was limited documentation available for the FARA API. 
+
+For the PLACES API, we successfully read in the data only to find that the API was not equipped to deliver data at the census tract level, only the county level. In both cases we opted instead to download data directly from the source websites at https://chronicdata.cdc.gov/browse?q=PLACES%202022 for PLACES and https://www.ers.usda.gov/data-products/food-access-research-atlas/download-the-data/ for the FARA dataset. After joining these two datasets, we also read in census tract shapefiles using the census API and library(tidycensus). 
 
 ```{r}
 #| eval: false
@@ -286,12 +290,19 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
 glimpse(combined_census)
 combined_census <- combined_census %>% clean_names()
 
-#binning obesity rates
+#binning obesity rates and creating text to work with
 combined_census <- combined_census %>%
   mutate(obesity_num = as.numeric(obesity),
-         obesity_bin = cut(obesity_num, breaks = 10))
-  
+         obesity_bin = cut(obesity_num, breaks = 10),
+         maptext = paste0("Place: ", as.character(name), "\n",
+                         "Obesity rate: ", as.character(obesity), "\n",
+                         "Rate of current smokers: ", as.character(csmoking), "\n",
+                         "Rate of teeth lost: ", as.character(teethlost), "\n",
+                         "Median family income: ", as.character(median_family_income), "\n"))
 
+
+                         
+  
 
 
 obesity_tracts <-  ggplot()+
@@ -303,11 +314,27 @@ obesity_tracts <-  ggplot()+
   labs(title = "Adult obesity rate by census tract in the US")+
   coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
   theme_void()
-
-
 obesity_tracts
 
-scale_fill_brewer(palette = "RdYlGn", aesthetics = "fill")
+
+obesity_tracts_int <-  ggplot()+
+  geom_sf_interactive(data = combined_census, 
+          aes(fill = obesity_bin,
+          data_id = maptext,
+          tooltip = maptext),
+          lwd = 0,
+          color = NA)+
+  scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill")+
+  labs(title = "Adult obesity rate by census tract in the US")+
+  coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
+  theme_void()
+
+girafe(ggobj = obesity_tracts_int) %>%
+  girafe_options(opts_hover(css = "fill:blue;"))
+
+#obesity_tracts
+
+
 ```
 
 ## (Supervised) Machine Learning
