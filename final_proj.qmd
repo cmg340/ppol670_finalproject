@@ -662,37 +662,42 @@ tree_fit <- tree_wf %>%
   fit(data = obesity_train)
 
 # create a tree 
-rpart.plot::rpart.plot(x = tree_fit$fit$fit$fit, roundint = FALSE)
+rpart.plot::rpart.plot(x = tree_fit$fit$fit$fit, 
+                       roundint = FALSE)
 
 # make predictions on train data
 predictions <- bind_cols(
   obesity_train,
-  predict(object = tree_fit, new_data = obesity_train)
+  predict(object = tree_fit, 
+          new_data = obesity_train)
 )
 
-pred_tree <- predict(object = tree_fit, new_data = obesity_train) 
+pred_tree <- predict(object = tree_fit, 
+                     new_data = obesity_train) 
 
 #evaluating model
-predictions <- predictions %>% drop_na(OBESITY, .pred) %>% mutate(
+predictions <- predictions %>% 
+  drop_na(OBESITY, .pred) %>% 
+  mutate(
   error = .pred - OBESITY,
   sqerror = error^2
 )
 
-mse_tree <- mean(predictions$sqerror)
-mse_tree
+rmse_tree <- sqrt(mean(predictions$error^2))
+rmse_tree
 
 # variable importance
-
 tree_fit %>% 
   extract_fit_parsnip() %>% 
   vip(num_features = 10)
 
-#tuning tree
+# tuning tree
 gridval <- 10
 
 tree_res <- tree_wf %>%
-  tune_grid(resample = folds, grid = gridval,
-            control=control_grid(save_pred = TRUE))
+  tune_grid(resample = folds, 
+            grid = gridval,
+            control = control_grid(save_pred = TRUE))
 
 tree_best <- tree_res %>%
   select_best(metric = "rmse")
@@ -700,10 +705,9 @@ tree_best <- tree_res %>%
 tree_tuned <- tree_wf %>%
   finalize_workflow(parameters = tree_best)
 
-tree_final  <-  fit( tree_tuned, obesity_train)
+tree_final <- fit(tree_tuned, data = obesity_train)
 
 # variable importance
-
 tree_final %>% 
   extract_fit_parsnip() %>% 
   vip(num_features = 10)
@@ -711,56 +715,19 @@ tree_final %>%
 #predictions with tuned model
 newpredictions <- bind_cols(
   obesity_test,
-  predict(tree_final, obesity_test)
+  predict(tree_final, new_data = obesity_test)
 )
 
 #evaluating model
-newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
+newpredictions <- newpredictions %>% 
+  drop_na(OBESITY, .pred) %>% 
+  mutate(
   error = .pred - OBESITY,
   sqerror = error^2
 )
 
-mse_prunedtree <- mean(newpredictions$sqerror)
-mse_prunedtree
-
-```
-
-```{r}
-#| eval: false
-# first attempt to tune tree -- did not go well
-fit.tree = rpart(OBESITY ~ ., data=obesity_train, method = "anova", cp=0.00009)
-fit.tree
-
-printcp(fit.tree)
-
-bestcp <- fit.tree$cptable[which.min(fit.tree$cptable[,"xerror"]),"CP"]
-bestcp
-
-#best cp has xerror of  0.28414
-
-#prune the tree
-pruned.tree <- prune(fit.tree, cp = bestcp)
-
-#plot the pruned tree
-rpart.plot(pruned.tree)
-
-# variable importance in pruned tree
-pruned.tree$variable.importance
-
-#predictions with pruned tree
-newpredictions <- bind_cols(
-  obesity_test,
-  predict( pruned.tree, nobesity_test)
-)
-
-#evaluating model
-newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
-  error = .pred - OBESITY,
-  sqerror = error^2
-)
-
-mse_prunedtree <- mean(newpredictions$sqerror)
-mse_prunedtree
+rmse_prunedtree <- sqrt(mean(newpredictions$sqerror))
+rmse_prunedtree
 
 ```
 
