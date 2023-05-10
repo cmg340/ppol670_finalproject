@@ -16,4 +16,4 @@ The main motivating question for this project was to examine obesity rates acros
 **Outline of project:**
 First we will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas. Then we will conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, and finally we create several predictive models to find the best model with highest predictive power. We will also determine what the most important variables for predicting obesity are for each model.
 
-Our results and process can be viewed (here)[https://cmg340.github.io/ppol670_finalproject/]
+Our results and process can be viewed !(here)[https://cmg340.github.io/ppol670_finalproject/]
