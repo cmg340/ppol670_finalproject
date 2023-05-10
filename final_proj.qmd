@@ -294,7 +294,8 @@ combined_census <- combined_census %>% clean_names()
 combined_census <- combined_census %>%
   mutate(obesity_num = as.numeric(obesity),
          obesity_bin = cut(obesity_num, breaks = 10),
-         maptext = paste0("Name: ", as.character(name), "\n",
+         maptext = paste0("State: ", as.character(stateabbr), "\n",
+                          "Tract: ", as.character(census_tract_x), "\n",
                          "Obesity rate: ", as.character(obesity), "\n",
                          "Rate of current smokers: ", as.character(csmoking), "\n",
                          "Rate of teeth lost: ", as.character(teethlost), "\n",
@@ -331,13 +332,13 @@ obesity_tracts_int <-  ggplot()+
   theme_void()
 
 girafe(ggobj = obesity_tracts_int) %>%
-  girafe_options(opts_hover(css = "fill:blue;"))
+  girafe_options(opts_hover(css = "fill:blue;"), opts_sizing(rescale = TRUE, width = 1))
 
 
 
-#install.packages("mapview")
+install.packages("mapview")
 library(mapview)
-combined_census %>% select(name, obesity, median_family_income, csmoking, teethlost) %>%
+combined_census %>% select(name, obesity_bin, median_family_income, csmoking, teethlost) %>%
   mapview(zcol = "obesity_bin",
           map.types = "Esri.NatGeoWorldMap")
 
