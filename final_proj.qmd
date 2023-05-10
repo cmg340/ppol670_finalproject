@@ -1,6 +1,6 @@
 ---
 title: "Final Project - Predicting Health Indicators"
-author: "Elena Spielmann, Patrick Jones, Leanne Chook, and Maeve Grady"
+author: "Leanne Chook, Maeve Grady, Patrick Jones and Elena Spielmann"
 format: 
   html:
     code-fold: true
@@ -10,7 +10,7 @@ execute:
   warning: false
   error: false
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 ## Introduction 
 
@@ -264,10 +264,12 @@ These plots reveal a number of insights about our data. While the average obesit
 
 It is also useful to look at data variability in urban and rural areas. While the average obesity rate is higher in rural areas, urban areas have higher variability of data. 
 ```{r}
-# boxplot to compare the distribution of obesity prevalence between urban and rural areas
-ggplot(combined, aes(x = urban, y = OBESITY)) +
+
+ggplot(combined, aes(x = factor(urban), y = OBESITY, fill = factor(urban))) +
   geom_boxplot() +
-  labs(x = "Rural/Urban", y = "Obesity Prevalence")
+  labs(x = "Rural/Urban", y = "Obesity Prevalence") +
+  scale_fill_manual(values = c("blue", "green")) +
+  ggtitle("Distribution of Obesity Prevalence by Rural/Urban Areas")
 
 ```
 
