@@ -4,3 +4,4 @@
 *.xlsx
 .Rproj.user
 .env
+.geojson
