@@ -158,10 +158,10 @@ places_tidy <- places %>%
 # There are a number of columns that are not necessary, they need to be dropped as well
 places_tidy <- places_tidy %>%
   dplyr::select(-(c(statedesc, datasource, category, measure, data_value_unit,
-          data_value_type, low_confidence_limit, high_confidence_limit,
-          categoryid, datavaluetypeid, short_question_text, countyfips, 
-          locationname, data_value_footnote, data_value_footnote_symbol,
-          )))
+                    data_value_type, low_confidence_limit, high_confidence_limit,
+                    categoryid, datavaluetypeid, short_question_text, countyfips, 
+                    locationname, data_value_footnote, data_value_footnote_symbol,
+  )))
 
 # Finally, we can pivot this dataset to wide format
 places_tidy <- places_tidy %>%
@@ -171,7 +171,7 @@ places_tidy <- places_tidy %>%
 # merge the data frames by census tract
 # swapped places and fara so that the combined dataset only has census tracts that are in fara
 combined <- right_join(places_tidy, fara,
-                      by = "census_tract")
+                       by = "census_tract")
 
 # Read in the shapefile - opting for tidy census here
 dotenv::load_dot_env()
@@ -192,7 +192,7 @@ census <- get_acs(geography = "tract",
 census <- census %>%
   rename(census_tract = GEOID) %>%
   st_transform(crs = st_crs(4326))
-  
+
 # binding census shapefile to this dataset
 combined_nonsf <- combined %>% 
   st_transform(crs = st_crs(4326))
@@ -238,12 +238,12 @@ To make this process easier, we wrote custom functions to make multiple plots.
 eda_point <- function(x, xlab) {
   
   plot <- ggplot(data = combined, 
-       aes(x = {{ x }},
-           y = OBESITY)) +
-  geom_point(aes(fill = as.factor(urban)),
-             color = "white", 
-             shape = 21) +
-  labs(x = xlab, y = "Obesity Prevalence") +
+                 aes(x = {{ x }},
+                     y = OBESITY)) +
+    geom_point(aes(fill = as.factor(urban)),
+               color = "white", 
+               shape = 21) +
+    labs(x = xlab, y = "Obesity Prevalence") +
     scale_fill_discrete(name = NULL,
                         breaks = c(0, 1),
                         labels = c("Rural", "Urban")) +
@@ -261,6 +261,8 @@ eda_point(CHECKUP, "Frequency of Health Checkups")
 ```
 
 These plots reveal a number of insights about our data. While the average obesity rate is higher in rural areas, urban areas have higher variability of data. Unsurprisingly, as the poverty rate increases, obesity rates increase as well. The next graph reflects this as well, showing that obesity declines as median family income increases. As expected, poor mental health also has a positive correlation with obesity prevalence. Regular health checkups, however, do not have a clear relationship with obesity. Furthermore, there is a much wider dispersion of rural census tracts in this plot as well.
+
+**Summary Statistics by State**
 
 ```{r}
 # Calculate summary statistics by state
@@ -286,11 +288,11 @@ eda_bar <- function(y, ylab){
   plot <- ggplot(summary_stats, 
                  aes(x = stateabbr, 
                      y = {{ y }})) +
-  geom_bar(stat = "identity", 
-           fill = "dodgerblue") +
-  labs(x = "State", 
-       y = ylab) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    geom_bar(stat = "identity", 
+             fill = "dodgerblue") +
+    labs(x = "State", 
+         y = ylab) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
     theme_minimal()
   
   return(plot)
@@ -303,14 +305,18 @@ eda_bar(sd_food_access, "Standard Deviation of Food Access")
 ```
 
 ```{r}
-#boxplot to compare the distribution of obesity prevalence between urban and rural areas
+# boxplot to compare the distribution of obesity prevalence between urban and rural areas
 ggplot(combined, aes(x = urban, y = OBESITY)) +
   geom_boxplot()
 
 ```
 
+**Spread of obesity prevalance across the United States**
+
 ```{r}
-combined_census <- combined_census %>% clean_names()%>% filter()
+combined_census <- combined_census %>% 
+  clean_names() %>% 
+  filter()
 
 breaks <- c(0, 10, 20, 30, 40, 50, 60, 70)
 
@@ -320,10 +326,10 @@ combined_census <- combined_census %>%
          obesity_bin = cut(obesity_num, breaks = 10),
          maptext = paste0("State: ", as.character(stateabbr), "\n",
                           "Tract: ", as.character(census_tract_x), "\n",
-                         "Obesity rate: ", as.character(obesity), "\n",
-                         "Rate of current smokers: ", as.character(csmoking), "\n",
-                         "Rate of teeth lost: ", as.character(teethlost), "\n",
-                         "Median family income: ", as.character(median_family_income)))
+                          "Obesity rate: ", as.character(obesity), "\n",
+                          "Rate of current smokers: ", as.character(csmoking), "\n",
+                          "Rate of teeth lost: ", as.character(teethlost), "\n",
+                          "Median family income: ", as.character(median_family_income)))
 
 # plot the graph 
 obesity_tracts <-  ggplot(combined_census) +
@@ -340,29 +346,27 @@ obesity_tracts <-  ggplot(combined_census) +
 
 obesity_tracts
 
-
-
 interactivemapdata <- combined_census %>% select(name, state, census_tract_x, obesity_num, median_family_income, csmoking, teethlost, maptext) 
 
 
- interactivemapdata %>% mapview(zcol = "obesity_num",
-          map.types = "Esri.NatGeoWorldMap",
-          col.regions = brewer.pal(8, "RdYlGn"),
-          color = NA)
+interactivemapdata %>% mapview(zcol = "obesity_num",
+                               map.types = "Esri.NatGeoWorldMap",
+                               col.regions = brewer.pal(8, "RdYlGn"),
+                               color = NA)
 
 ```
 
 ```{r}
 #| eval: false
 #this codeblock is an interactive map of obesity by census tract that includes some other information that can pop up when hovering over each tract. While the code runs, it takes a very long time to run so we have chosen not to evaluate it here. 
-obesity_tracts_int <-  ggplot()+
+obesity_tracts_int <-  ggplot() +
   geom_sf_interactive(data = combined_census, 
-          aes(fill = obesity_bin,
-          data_id = maptext,
-          tooltip = maptext),
-          lwd = 0,
-          color = NA)+
-
+                      aes(fill = obesity_bin,
+                          data_id = maptext,
+                          tooltip = maptext),
+                      lwd = 0,
+                      color = NA) +
+  
   scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill", guide = "none")+
   labs(title = "Adult obesity rate by census tract in the US")+
   coord_sf(xlim=c(-160, -64),ylim=c(-30,72), crs = 4326) +
@@ -370,8 +374,6 @@ obesity_tracts_int <-  ggplot()+
 
 girafe(ggobj = obesity_tracts_int) %>%
   girafe_options(opts_hover(css = "fill:blue;"), opts_sizing(rescale = TRUE))
-
-
 
 ```
 
@@ -419,7 +421,10 @@ obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
 
 ```
 
-**Linear Regression**
+**Models**
+
+*Linear Regression*
+
 This is a simple and widely-used statistical model for predicting a continuous outcome based on one or more predictor variables. The goal is to find a linear relationship between the outcome and predictors, which can be used to make predictions.
 
 ```{r}
@@ -454,7 +459,8 @@ lm_coefs <- lm_final %>%
 
 ```
 
-**LASSO Model**
+*LASSO Model*
+
 This is a linear regression model with a regularization term added to the objective function, which helps to prevent overfitting and improve generalization performance. The LASSO penalty shrinks some of the regression coefficients towards zero, effectively selecting a subset of the most important predictors for the outcome.
 
 ```{r}
@@ -498,19 +504,18 @@ lasso_coefs <- lasso_final %>%
 
 ```
 
-**Ridge Model**
+*Ridge Model*
+
 This is also a linear regression model with a regularization term, but instead of selecting a subset of predictors, it shrinks all of the regression coefficients towards zero. This can help to reduce the impact of multicollinearity among the predictors.
 
 ```{r}
-
 # create a tuning grid for ridge regularization, varying the regularization penalty
 ridge_grid <- grid_regular(penalty(), levels = 10)
 
 # create a linear_regression model to tune the penalty parameter
 ridge_mod <- linear_reg(
   penalty = tune(), 
-  mixture = 0
-) %>%
+  mixture = 0) %>%
   set_engine("glmnet")
 
 # create a ridge workflow using your updated linear regression model 
@@ -543,7 +548,8 @@ ridge_coefs <- ridge_final %>%
 
 ```
 
-**Elastic Net**
+*Elastic Net*
+
 This is a combination of LASSO and ridge regression, with both penalties included in the objective function. This can help to balance the benefits of variable selection and coefficient shrinkage, and is useful when the data contains many correlated predictors.
 
 ```{r}
@@ -584,7 +590,7 @@ elastic_net_coefs <- elastic_net_final %>%
 
 ```
 
-## Compare Models
+## Comparing the Different Models
 
 ```{r}
 # the models are compared for prediction accuracy
@@ -646,8 +652,10 @@ plot1 + plot2 + plot3
 
 ```
 
-**Decision Tree Model**
+*Decision Tree Model*
+
 This is a tree model. The first model is not tuned and the second model is tuned using the same cross-folds as the above models, but does not show an improvement in rmse compared to the non-tuned model. This model was interesting to examine to understand what factors the model considers as driving obesity rates more than others. As you can see in the variable importance plot below, current smoking rates, lost teeth rates, "general health", low rates of no liesure-time physical activity and physical health as relatively important variables in predicting obesity rates. Median family income was also in the top 10 of important variables. 
+
 ```{r}
 # create a model
 tree_mod <- 
@@ -678,21 +686,17 @@ predictions <- bind_cols(
 pred_tree <- predict(object = tree_fit, 
                      new_data = obesity_train) 
 
-#evaluating model
+# evaluating model
 predictions <- predictions %>% 
   drop_na(OBESITY, .pred) %>% 
   mutate(
-  error = .pred - OBESITY,
-  sqerror = error^2
-)
+    error = .pred - OBESITY,
+    sqerror = error^2
+  )
 
-
-#calculating rmse on non-tuned model
-
+# calculating rmse on non-tuned model
 rmse_tree <- sqrt(mean(predictions$sqerror))
 rmse_tree
-
-
 
 # variable importance
 tree_fit %>% 
@@ -720,20 +724,21 @@ tree_final %>%
   extract_fit_parsnip() %>% 
   vip(num_features = 10)
 
-#predictions with tuned model
+# predictions with tuned model
 newpredictions <- bind_cols(
   obesity_test,
   predict(tree_final, new_data = obesity_test)
 )
 
-#evaluating model
+# evaluating model
 newpredictions <- newpredictions %>% 
   drop_na(OBESITY, .pred) %>% 
   mutate(
-  error = .pred - OBESITY,
-  sqerror = error^2
-)
+    error = .pred - OBESITY,
+    sqerror = error^2
+  )
 
+# calculating rmse on tuned model
 rmse_prunedtree <- sqrt(mean(newpredictions$sqerror))
 rmse_prunedtree
 
