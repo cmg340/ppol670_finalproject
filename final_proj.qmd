@@ -294,17 +294,13 @@ combined_census <- combined_census %>% clean_names()
 combined_census <- combined_census %>%
   mutate(obesity_num = as.numeric(obesity),
          obesity_bin = cut(obesity_num, breaks = 10),
-         maptext = paste0("Place: ", as.character(name), "\n",
+         maptext = paste0("Name: ", as.character(name), "\n",
                          "Obesity rate: ", as.character(obesity), "\n",
                          "Rate of current smokers: ", as.character(csmoking), "\n",
                          "Rate of teeth lost: ", as.character(teethlost), "\n",
-                         "Median family income: ", as.character(median_family_income), "\n"))
+                         "Median family income: ", as.character(median_family_income)))
 
-
-                         
   
-
-
 obesity_tracts <-  ggplot()+
   geom_sf(data = combined_census, 
           aes(fill = obesity_bin),
@@ -314,9 +310,14 @@ obesity_tracts <-  ggplot()+
   labs(title = "Adult obesity rate by census tract in the US")+
   coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
   theme_void()
+
 obesity_tracts
+```
 
-
+```{r}
+#| eval: false
+#ignoring this block for now since it doesn't work yet
+#interactive map attempt - this isn't working yet
 obesity_tracts_int <-  ggplot()+
   geom_sf_interactive(data = combined_census, 
           aes(fill = obesity_bin,
@@ -332,7 +333,13 @@ obesity_tracts_int <-  ggplot()+
 girafe(ggobj = obesity_tracts_int) %>%
   girafe_options(opts_hover(css = "fill:blue;"))
 
-#obesity_tracts
+
+
+#install.packages("mapview")
+library(mapview)
+combined_census %>% select(name, obesity, median_family_income, csmoking, teethlost) %>%
+  mapview(zcol = "obesity_bin",
+          map.types = "Esri.NatGeoWorldMap")
 
 
 ```
