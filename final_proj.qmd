@@ -14,19 +14,21 @@ editor_options:
 ---
 ## Introduction 
 
-Obesity has reached epidemic proportions in the United States, and affects people of all ages, socioeconomic backgrounds and ethnicities, which imposes substantial economic burdens in the form of productivity losses, strains to the healthcare system and costs. 
+Obesity has reached epidemic proportions in the United States, and affects people of all ages, socioeconomic backgrounds and ethnicities. This imposes substantial economic burdens in the form of productivity losses, strains to the healthcare system and costs. 
 
 The prevalence of obesity in the United States was approximately 41.9% in 2017 to 2020, of that, the prevalence of severe obesity also increased to 9.2%. This increasing trend is worrying because obesity can lead to several other health conditions such as heart disease, strokes, type 2 diabetes, and certain types of cancers, all of which are the leading causes of preventable and premature deaths in the country. For these reasons, determining predictors of obesity is a public health priority. 
 
 Furthermore, this increasing trend of obesity also has other implications on national security, especially as more individuals become ineligible for the military, therefore, significantly reducing military recruitment numbers. 
 
 **Motivating question:**
+
 What health, social, and economic indicators are most important in predicting obesity?
 
 The main motivating question for this project was to examine obesity rates across the United States and find predictors that can help policymakers make effective decisions to help reduce obesity prevalence. Each of the selected data sets brings in different predictors to the model, covering health, social and economic aspects of obesity. This is relevant to the public policy sphere because the marrying of these different aspects are key to meaningful policy change and effective spending of government funds. Determining important predictors can help policymakers make effective decisions to help reduce obesity prevalence, which is a public health priority.
 
 **Outline of project:**
-First we will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas. Then we will conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, and finally we create several predictive models to find the best model with highest predictive power. We will also determine what the most important variables for predicting obesity are for each model.
+
+We will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas (FARA). We will then conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, before creating several predictive models to find the best model with highest predictive power. We will also determine what the most important variables for predicting obesity are for each model.
 
 *Setup (loading packages)*
 
@@ -70,13 +72,16 @@ library(ggiraph)
 ```
 
 ## Reading in Data using APIs
-This endeavor used both the CDC's PLACES dataset and the USDA's FARA dataset. The team attempted to read each dataset in using API query's (attempts below) but ran into limitations in the APIs and in technical experise. In the case of the FARA dataset, the API available is hosted through ESRI as an ArcGIS REST service. This means that the query must be read in through an st_read()command, which made it very difficult to troubeleshoot query errors. There was limited documentation available for the FARA API. 
 
-For the PLACES API, we successfully read in the data only to find that the API was not equipped to deliver data at the census tract level, only the county level. In both cases we opted instead to download data directly from the source websites at https://chronicdata.cdc.gov/browse?q=PLACES%202022 for PLACES and https://www.ers.usda.gov/data-products/food-access-research-atlas/download-the-data/ for the FARA dataset. After joining these two datasets, we also read in census tract shapefiles using the census API and library(tidycensus). 
+This endeavor used both the CDC's PLACES dataset and the USDA's FARA dataset. The team attempted to read each dataset in using API query's (attempts below) but ran into limitations in the APIs and in technical expertise. In the case of the FARA dataset, the API available is hosted through ESRI as an ArcGIS REST service. This means that the query must be read in through an st_read()command, which made it very difficult to troubleshoot query errors. There was limited documentation available for the FARA API. 
+
+For the PLACES API, we successfully read in the data only to find that the API was not equipped to deliver data at the census tract level, only the county level. In both cases we opted instead to download data directly from the source websites at <https://chronicdata.cdc.gov/browse?q=PLACES%202022> for PLACES and <https://www.ers.usda.gov/data-products/food-access-research-atlas/download-the-data/> for the FARA dataset. 
+
+After joining these two datasets, we also read in census tract shapefiles using the census API and library(tidycensus). 
 
 ```{r}
-#| eval: false
-#accessing FARA data through ArcGIS REST API
+# | eval: false
+# accessing FARA data through ArcGIS REST API
 ## to write this code I consulted this blog post: https://community.esri.com/t5/gis-blog/accessing-arcgis-rest-services-using-r/ba-p/898451
 
 url <- parse_url("https://gis.ers.usda.gov/arcgis/rest/services")
@@ -84,28 +89,29 @@ url$path <- paste(url$path, "foodaccess2019/MapServer/0/query", sep = "/")
 url$query <- list(returnGeometry = "true",
                   f = "geojson",
                   outFields = "*")
+
 request <- build_url(url)
 
-foodaccess <- st_read(request) ## this should create a full dataframe but is obviously not working right now.  
+foodaccess <- st_read(request) 
 
-
-##using this api to try to figure out how the query should work:
-##https://gis.ers.usda.gov/arcgis/rest/services/foodaccess2019/MapServer/0/query?where=&text=&objectIds=&time=&geometry=&geometryType=esriGeometryPolygon&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=html
+## using this api to try to figure out how the query should work:
+## https://gis.ers.usda.gov/arcgis/rest/services/foodaccess2019/MapServer/0/query?where=&text=&objectIds=&time=&geometry=&geometryType=esriGeometryPolygon&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=html
 
 ```
 
 ```{r}
 #| eval: false
+#| 
 #install.packages("RSocrata")
 library(RSocrata) ## the Rsocrata package has to be loaded in after httr package for the above code to work 
 
-##reading in api credentials
+## reading in api credentials
 load_dot_env(here(".env"))
 app_token <- Sys.getenv("PLACES_app_token")
 user_name <- Sys.getenv("PLACES_username")
 password <- Sys.getenv("PLACES_password")
 
-#PLACES dataset
+# PLACES dataset
 
 places <- read.socrata(
   "https://chronicdata.cdc.gov/resource/swc5-untb.json",
@@ -116,6 +122,7 @@ places <- read.socrata(
 ```
 
 ## Combining the Datasets
+
 The federal government provides a wide variety of publicly available health outcomes data. Our group explored a variety of different sources, but ultimately settled on two datasets: the USDA's The Food Access Research Atlas and the CDC's PLACES database.
 
 **The Food Access Research Atlas (FARA)** provides a variety of food access measures for low income and low access census tracts. Food access measures use income, transportation, and distance from grocery stores and other food sellers to determine how accessible food is to residents of a given census tract. This dataset includes distinct measures of access for urban and rural populations.
@@ -134,19 +141,20 @@ fara <- read_excel("fara_2019.xlsx")
 fara <- clean_names(fara)
 
 # load the PLACES dataset
-places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson")%>% st_transform(value = 4326)
+places <- st_read("PLACES_ Local Data for Better Health, Census Tract Data 2022 release.geojson") %>% 
+  st_transform(value = 4326)
 
 places <- places %>%
   rename(census_tract = locationid)
 
-#creating tidy dataset
+# creating tidy dataset
 places_tidy <- places
 
-#Filtering observations to 2020 only
+# Filtering observations to 2020 only
 places_tidy <- places %>%
   filter(year == 2020)
 
-#There are a number of columns that are not necessary, they need to be dropped as well
+# There are a number of columns that are not necessary, they need to be dropped as well
 places_tidy <- places_tidy %>%
   dplyr::select(-(c(statedesc, datasource, category, measure, data_value_unit,
           data_value_type, low_confidence_limit, high_confidence_limit,
@@ -154,40 +162,41 @@ places_tidy <- places_tidy %>%
           locationname, data_value_footnote, data_value_footnote_symbol,
           )))
 
-#Finally, we can pivot this dataset to wide format
+# Finally, we can pivot this dataset to wide format
 places_tidy <- places_tidy %>%
   pivot_wider(names_from = "measureid",
               values_from = "data_value")
 
 # merge the data frames by census tract
-#swapped places and fara so that the combined dataset only has census tracts that are in fara
+# swapped places and fara so that the combined dataset only has census tracts that are in fara
 combined <- right_join(places_tidy, fara,
                       by = "census_tract")
 
 # Read in the shapefile - opting for tidy census here
 load_dot_env(here(".env"))
 
-census_api_key("census_api_key", install = T, overwrite=TRUE)
+census_api_key("census_api_key", install = T, overwrite = TRUE)
 
 options(tigris_use_cache = TRUE)
 
 allstates <- c(state.abb)
 allstates
 
-census <- get_acs(state = allstates ,
-                  geography = "tract", 
+census <- get_acs(geography = "tract", 
                   variables =  "B19013_001",
-                  geometry = TRUE,
-                  year = 2019)%>%
-  rename(census_tract = GEOID)%>%
+                  year = 2019,
+                  state = allstates, 
+                  geometry = TRUE) 
+
+census <- census %>%
+  rename(census_tract = GEOID) %>%
   st_transform(crs = st_crs(4326))
   
+# binding census shapefile to this dataset
+combined_nonsf <- combined %>% 
+  st_transform(crs = st_crs(4326))
 
-
-#binding census shapefile to this dataset
-combined_nonsf <- combined %>% st_transform(crs = st_crs(4326))
 combined_census <- st_join(census, combined_nonsf, join = st_intersects)
-
 
 
 ```
@@ -199,10 +208,13 @@ Before building models, our team conducted exploratory data analysis in order to
 ```{r}
 glimpse(combined)
 
-#A ton of our numeric variables are stored as character variables, they need to be converted to numeric variables
+# A ton of our numeric variables are stored as character variables, they need to be converted to numeric variables
 to_convert <- colnames(select_if(combined, is.character))
+
 to_convert <- to_convert[!to_convert %in% c("census_tract", "countyname", "year", "stateabbr", "geometry")]
+
 to_convert <- unlist(to_convert)
+
 combined <- combined %>%
   mutate_at(to_convert, as.numeric)
 ```
@@ -244,12 +256,9 @@ eda_point(CHECKUP, "Frequency of Health Checkups")
 
 ```
 
-These plots reveal a number of insights about our data. While the average obesity rate is higher in rural areas, urban areas have higher variability of of data. Unsurprisingly, as the poverty rate increases, obesity rates increase as well. The next graph reflects this as well, showing that obesity declines as median family income increases. As expected, poor mental health also has a positive correlation with obesity prevalence. Regular health checkups, however, do not have a clear relationship with obesity. Furthermore, there is a much wider dispersion of rural census tracts in this plot as well.
+These plots reveal a number of insights about our data. While the average obesity rate is higher in rural areas, urban areas have higher variability of data. Unsurprisingly, as the poverty rate increases, obesity rates increase as well. The next graph reflects this as well, showing that obesity declines as median family income increases. As expected, poor mental health also has a positive correlation with obesity prevalence. Regular health checkups, however, do not have a clear relationship with obesity. Furthermore, there is a much wider dispersion of rural census tracts in this plot as well.
 
 ```{r}
-#I did some exploration by state. I know we discussed sticking with census tract, but I thought this might be an interesting talking point when we are complete with the census tract analysis. 
-
-
 # Calculate summary statistics by state
 summary_stats <- combined %>%
   group_by(stateabbr) %>%
@@ -257,9 +266,7 @@ summary_stats <- combined %>%
             median_income = median(median_family_income, na.rm = TRUE),
             sd_food_access = sd(la1and10, na.rm = TRUE))
 
-
 head(summary_stats)
-
 
 #' eda_bar
 #'
@@ -288,16 +295,14 @@ eda_bar <- function(y, ylab){
 eda_bar(mean_obesity, "Mean Obesity")
 eda_bar(median_income, "Median Income")
 eda_bar(sd_food_access, "Standard Deviation of Food Access")
-```
-
 
 ```
-
 
 ```{r}
 #boxplot to compare the distribution of obesity prevalence between urban and rural areas
 ggplot(combined, aes(x = urban, y = OBESITY)) +
   geom_boxplot()
+
 ```
 
 ```{r}
@@ -307,8 +312,7 @@ combined_census <- combined_census %>% clean_names()%>% filter()
 
 breaks <- c(0, 10, 20, 30, 40, 50, 60, 70)
 
-
-#binning obesity rates and creating text to work with
+# binning obesity rates and creating text to work with
 combined_census <- combined_census %>%
   mutate(obesity_num = as.numeric(obesity),
          obesity_bin = cut(obesity_num, breaks = 10),
@@ -319,18 +323,21 @@ combined_census <- combined_census %>%
                          "Rate of teeth lost: ", as.character(teethlost), "\n",
                          "Median family income: ", as.character(median_family_income)))
 
-  
-obesity_tracts <-  ggplot()+
-  geom_sf(data = combined_census, 
-          aes(fill = obesity_bin),
+# plot the graph 
+obesity_tracts <-  ggplot(combined_census) +
+  geom_sf(aes(fill = obesity_bin),
           lwd = 0,
           color = NA)+
-  scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill")+
-  labs(title = "Adult obesity rate by census tract in the US")+
-  coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
+  scale_fill_brewer(palette = "RdYlGn", direction  = -1)+
+  labs(title = "Adult obesity rate by census tract in the US",
+       fill = "Prevalence of\nObesity") +
+  coord_sf(xlim = c(-160, -64),
+           ylim = c(18, 72), 
+           crs = 4326) +
   theme_void()
 
 obesity_tracts
+
 ```
 
 ```{r}
@@ -344,22 +351,25 @@ obesity_tracts_int <-  ggplot()+
           tooltip = maptext),
           lwd = 0,
           color = NA)+
-  scale_fill_brewer(palette = "RdYlGn",direction  = -1,  aesthetics = "fill")+
+  scale_fill_brewer(palette = "RdYlGn", direction  = -1)+
   labs(title = "Adult obesity rate by census tract in the US")+
-  coord_sf(xlim=c(-160, -64),ylim=c(18,72), crs = 4326) +
+  coord_sf(xlim = c(-160, -64),
+           ylim = c(18,72), 
+           crs = 4326) +
   theme_void()
 
 girafe(ggobj = obesity_tracts_int) %>%
-  girafe_options(opts_hover(css = "fill:blue;"), opts_sizing(rescale = TRUE, width = 1))
-
-
+  girafe_options(opts_hover(css = "fill:blue;"), 
+                 opts_sizing(rescale = TRUE, 
+                             width = 1))
 
 install.packages("mapview")
 library(mapview)
-combined_census %>% select(name, obesity_bin, median_family_income, csmoking, teethlost) %>%
+
+combined_census %>% 
+  select(name, obesity_bin, median_family_income, csmoking, teethlost) %>%
   mapview(zcol = "obesity_bin",
           map.types = "Esri.NatGeoWorldMap")
-
 
 ```
 
@@ -369,12 +379,9 @@ combined_census %>% select(name, obesity_bin, median_family_income, csmoking, te
 *Setting up the testing environment*
 
 ```{r}
-
-
-# separate geometry column into longitude and latitude and prepare it for recipe 
+# separate geometry column into longitude and latitude, and reduce the number of variables to prepare it for recipe 
 combinedsmall <- combined %>%
   select(census_tract, COPD, OBESITY, STROKE, DEPRESSION, LPA, CASTHMA, TEETHLOST, ARTHRITIS, DIABETES, BINGE, SLEEP, ACCESS2, PHLTH, DENTAL, MHLTH, CANCER, CHD, GHLTH, CHECKUP, CSMOKING, CERVICAL, KIDNEY, COLON_SCREEN, COREW, urban, median_family_income, la1and10, lalowi1share, lakids1share, laseniors1share, lahunv1share)
-
 
 combinedsep <- combinedsmall %>%
   mutate(longitude = st_coordinates(geometry)[, "X"],
@@ -399,7 +406,7 @@ obesity_test <- testing(x = obesity_split)
 # set up v-fold cross validation 
 folds <- vfold_cv(data = obesity_train, v = 5, repeats = 1)
 
-# create a recipe (need to look at what needs to be added)
+# create a recipe 
 obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
   step_other(census_tract) %>%
   step_naomit(all_predictors()) %>%
@@ -407,24 +414,22 @@ obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
   step_scale(all_numeric_predictors()) %>%
   step_dummy(census_tract)
 
-
 ```
 
 **Linear Regression**
 This is a simple and widely-used statistical model for predicting a continuous outcome based on one or more predictor variables. The goal is to find a linear relationship between the outcome and predictors, which can be used to make predictions.
 
 ```{r}
-
-# create a linear regression model using the "lm" package as the engine
+# create a linear regression model
 lm_mod <- linear_reg() %>%
   set_engine("lm")
 
-# create a workflow with the recipe and linear regression model you've created
+# create a workflow 
 lm_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(lm_mod) 
 
-# fit the model by piping your workflow
+# fit the model 
 lm_cv <- lm_wf %>%
   fit_resamples(resamples = folds)
 
@@ -432,8 +437,7 @@ lm_cv <- lm_wf %>%
 lm_best <- lm_cv %>%
   select_best("rmse")
 
-# use the finalize_workflow() function with your workflow and the best model 
-# to update (or "finalize") your workflow by modifying the line below
+# finalize workflow
 lm_final <- finalize_workflow(
   lm_wf,
   parameters = lm_best
@@ -449,26 +453,24 @@ lm_coefs <- lm_final %>%
 
 **LASSO Model**
 This is a linear regression model with a regularization term added to the objective function, which helps to prevent overfitting and improve generalization performance. The LASSO penalty shrinks some of the regression coefficients towards zero, effectively selecting a subset of the most important predictors for the outcome.
+
 ```{r}
 # create a tuning grid for lasso regularization, varying the regularization penalty
 lasso_grid <- grid_regular(penalty(), levels = 10)
 
-# create a linear_regression model so that you can tune the penalty parameter
-# set the mixture parameter to 1 and use "glmnet" for the engine
+# create a linear_regression model to tune the penalty parameter
 lasso_mod <- linear_reg(
   penalty = tune(), 
   mixture = 1
 ) %>%
   set_engine("glmnet")
 
-# create a workflow using your updated linear regression model you just created and the same recipe
-# you defined above
+# create a workflow using your updated linear regression model 
 lasso_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(lasso_mod) 
 
-# perform hyperparameter tuning using the lasso_grid and the 
-# cross_validation folds you created above by modifying the line below
+# perform hyperparameter tuning using the lasso_grid and cross validation folds
 lasso_cv <- lasso_wf %>%
   tune_grid(
     resamples = folds,
@@ -479,8 +481,7 @@ lasso_cv <- lasso_wf %>%
 lasso_best <- lasso_cv %>%
   select_best(metric = "rmse")
 
-# use the finalize_workflow() function with your lasso workflow and the best model 
-# to update (or "finalize") your workflow by modifying the line below
+# finalize workflow and finding the best model
 lasso_final <- finalize_workflow(
   lasso_wf,
   parameters = lasso_best
@@ -496,27 +497,25 @@ lasso_coefs <- lasso_final %>%
 
 **Ridge Model**
 This is also a linear regression model with a regularization term, but instead of selecting a subset of predictors, it shrinks all of the regression coefficients towards zero. This can help to reduce the impact of multicollinearity among the predictors.
+
 ```{r}
 
 # create a tuning grid for ridge regularization, varying the regularization penalty
 ridge_grid <- grid_regular(penalty(), levels = 10)
 
-# create a linear_regression model so that you can tune the penalty parameter
+# create a linear_regression model to tune the penalty parameter
 ridge_mod <- linear_reg(
   penalty = tune(), 
   mixture = 0
 ) %>%
   set_engine("glmnet")
 
-# create a ridge workflow using your updated linear regression model you just created and 
-# the same recipe you defined above
+# create a ridge workflow using your updated linear regression model 
 ridge_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(ridge_mod)
 
-# perform hyperparameter tuning using the on your ridge hyperparameter grid and
-# cross_validation folds you created above by modifying the line below
-# use the tune_grid() function
+# perform hyperparameter tuning using the on ridge hyperparameter grid and use cross_validation folds 
 ridge_cv <- ridge_wf %>%
   tune_grid(
     resamples = folds,
@@ -527,15 +526,13 @@ ridge_cv <- ridge_wf %>%
 ridge_best <- ridge_cv %>%
   select_best(metric = "rmse")
 
-# use the finalize_workflow() function with your ridge workflow and the best model 
-# to update (or "finalize") your workflow
+# finalize workflow
 ridge_final <- finalize_workflow(
   ridge_wf,
   parameters = ridge_best
 )
 
 # fit the final ridge model to the full training data and extract coefficients
-# by updating the line below
 ridge_coefs <- ridge_final %>%
   fit(data = obesity_train) %>%
   extract_fit_parsnip() %>%
@@ -545,26 +542,23 @@ ridge_coefs <- ridge_final %>%
 
 **Elastic Net**
 This is a combination of LASSO and ridge regression, with both penalties included in the objective function. This can help to balance the benefits of variable selection and coefficient shrinkage, and is useful when the data contains many correlated predictors.
+
 ```{r}
 # create a tuning grid for elastic net regularization, varying the regularization penalty
 elastic_net_grid <- grid_regular(penalty(), levels = 10)
 
-# create a linear_regression model so that you can tune the penalty parameter
-# and use "glmnet" for the engine. If you set mixture = 1 for lasso regression above,
-# and mixture = 0 for ridge regression, what should you set mixture equal to for elastic net?
+# create a linear_regression model to tune the penalty parameter
 elastic_net_mod <- linear_reg(
   penalty = tune(), 
   mixture = 0.5) %>%
   set_engine("glmnet")
 
-# create an elastic net workflow using your updated linear regression model you just created and 
-# the same recipe you defined above
+# create an elastic net workflow using your updated linear regression model
 elastic_net_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(elastic_net_mod)
 
-# perform hyperparameter tuning using the on your elastic net hyperparameter grid and
-# cross_validation folds you created above by modifying the line below
+# perform hyperparameter tuning using the on your elastic net hyperparameter grid and use cross_validation folds 
 elastic_net_cv <- elastic_net_wf %>%
   tune_grid(
     resamples = folds,
@@ -574,14 +568,12 @@ elastic_net_cv <- elastic_net_wf %>%
 elastic_net_best <- elastic_net_cv %>%
   select_best(metric = "rmse")
 
-# use the finalize_workflow() function with your elastic net workflow and the best model 
-# to update (or "finalize") your workflow
+# finalize workflow
 elastic_net_final <- finalize_workflow(
   elastic_net_wf,
   parameters = elastic_net_best)
 
 # fit the final elastic net model to the full training data and extract coefficients
-# by updating the line below
 elastic_net_coefs <- elastic_net_final %>%
   fit(data = obesity_train) %>%
   extract_fit_parsnip() %>%
@@ -592,7 +584,7 @@ elastic_net_coefs <- elastic_net_final %>%
 ## Compare Models
 
 ```{r}
-# the models are comparable for prediction accuracy
+# the models are compared for prediction accuracy
 bind_rows(
   `lm` = show_best(lm_cv, metric = "rmse", n = 1),
   `LASSO` = show_best(lasso_cv, metric = "rmse", n = 1),
@@ -648,6 +640,7 @@ plot3 <- left_join(
   geom_point(alpha = 0.3)
 
 plot1 + plot2 + plot3
+
 ```
 
 **Decision Tree Model**
@@ -664,8 +657,6 @@ tree_wf <- workflow() %>%
   add_recipe(obesity_rec) %>%
   add_model(tree_mod)
 
-
-
 # fit model to the training set 
 tree_fit <- tree_wf %>%
   fit(data = obesity_train)
@@ -673,8 +664,7 @@ tree_fit <- tree_wf %>%
 # create a tree 
 rpart.plot::rpart.plot(x = tree_fit$fit$fit$fit, roundint = FALSE)
 
-
-#make predictions on train data
+# make predictions on train data
 predictions <- bind_cols(
   obesity_train,
   predict(object = tree_fit, new_data = obesity_train)
@@ -691,7 +681,6 @@ predictions <- predictions %>% drop_na(OBESITY, .pred) %>% mutate(
 mse_tree <- mean(predictions$sqerror)
 mse_tree
 
-
 # variable importance
 
 tree_fit %>% 
@@ -705,18 +694,13 @@ tree_res <- tree_wf %>%
   tune_grid(resample = folds, grid = gridval,
             control=control_grid(save_pred = TRUE))
 
-
-
 tree_best <- tree_res %>%
   select_best(metric = "rmse")
-
 
 tree_tuned <- tree_wf %>%
   finalize_workflow(parameters = tree_best)
 
-
 tree_final  <-  fit( tree_tuned, obesity_train)
-
 
 # variable importance
 
@@ -725,12 +709,10 @@ tree_final %>%
   vip(num_features = 10)
 
 #predictions with tuned model
-
 newpredictions <- bind_cols(
   obesity_test,
   predict(tree_final, obesity_test)
 )
-
 
 #evaluating model
 newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
@@ -741,12 +723,9 @@ newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
 mse_prunedtree <- mean(newpredictions$sqerror)
 mse_prunedtree
 
-
-#was having trouble testing this model - after the above the RMSE is the same, below is my first attempt to tune the model
 ```
 
 ```{r}
-
 #| eval: false
 # first attempt to tune tree -- did not go well
 fit.tree = rpart(OBESITY ~ ., data=obesity_train, method = "anova", cp=0.00009)
@@ -765,12 +744,10 @@ pruned.tree <- prune(fit.tree, cp = bestcp)
 #plot the pruned tree
 rpart.plot(pruned.tree)
 
-
 # variable importance in pruned tree
 pruned.tree$variable.importance
 
 #predictions with pruned tree
-
 newpredictions <- bind_cols(
   obesity_test,
   predict( pruned.tree, nobesity_test)
@@ -785,21 +762,24 @@ newpredictions <- newpredictions %>% drop_na(OBESITY, .pred) %>% mutate(
 mse_prunedtree <- mean(newpredictions$sqerror)
 mse_prunedtree
 
-
 ```
 
 ## Results
 
 **Best Models**
+
 In order to pick the best model, we consider the RMSE as the metric used for evaluation, the mean value of the metric across the folds, and the standard error of the metric. Generally, we want to choose the model that has the lowest value of the metric, as this indicates better performance on the test data.
 
-The RMSE values for lm, LASSO, and enet are all the same at 2.55. However, the ridge model has a slightly higher rmse of 2.69. This suggests that the lm, LASSO, and enet models may be better choices than the ridge model.
+The RMSE values for lm, LASSO, and enet are all the same at 2.55. However, the ridge model has a slightly higher RMSE of 2.69. This suggests that the lm, LASSO, and enet models may be better choices than the ridge model.
 
 Additionally, we consider the standard error of the metric. The standard error gives an estimate of the precision of the mean estimate, with a lower value indicating more precision. In our case, we can see that the standard errors for all models are quite small, indicating that the mean estimates are likely quite precise.
 
 **Most Important Variables**
+
 The two most important variables for each model are consistently diabetes and arthritis across the board with regard to obesity. Specifically, people with diabetes and arthritis may be more likely to develop obesity.
 
-Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero. Therefore, it is likely that BINGE does not contribute much additional information in predicting obesity after accounting for the other predictors in the LASSO, ridge, and enet models. However, the lm model may be overfitting to BINGE due to the absence of regularization, which could explain why it is highly important in that model.
+Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero.
+
+Therefore, it is likely that BINGE does not contribute much additional information in predicting obesity after accounting for the other predictors in the LASSO, ridge, and enet models. However, the lm model may be overfitting to BINGE due to the absence of regularization, which could explain why it is highly important in that model.
 
 
