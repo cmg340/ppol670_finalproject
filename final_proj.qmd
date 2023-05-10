@@ -16,15 +16,17 @@ editor_options:
 
 Obesity has reached epidemic proportions in the United States, and affects people of all ages, socioeconomic backgrounds and ethnicities, which imposes substantial economic burdens in the form of productivity losses, strains to the healthcare system and costs. 
 
-The prevalence of obesity in the United States was approximately 41.9% in 2017 to 2020, of that, the prevalence of severe obesity also increased to 9.2%. This increasing trend is worrying because obesity can lead to several other health conditions such as heart disease, strokes, type 2 diabetes, and certain types of cancers, all of which are the leading causes of preventable and premature deaths in the country. 
+The prevalence of obesity in the United States was approximately 41.9% in 2017 to 2020, of that, the prevalence of severe obesity also increased to 9.2%. This increasing trend is worrying because obesity can lead to several other health conditions such as heart disease, strokes, type 2 diabetes, and certain types of cancers, all of which are the leading causes of preventable and premature deaths in the country. For these reasons, determining predictors of obesity is a public health priority. 
 
 Furthermore, this increasing trend of obesity also has other implications on national security, especially as more individuals become ineligible for the military, therefore, significantly reducing military recruitment numbers. 
 
 **Motivating question:**
-The main motivating question for this project was to examine obesity rates across the United States and find predictors that can help policymakers make effective decisions to help reduce obesity prevalence in the most vulnerable areas. 
+What health, social, and economic indicators are most important in predicting obesity?
+
+The main motivating question for this project was to examine obesity rates across the United States and find predictors that can help policymakers make effective decisions to help reduce obesity prevalence. Each of the selected data sets brings in different predictors to the model, covering health, social and economic aspects of obesity. This is relevant to the public policy sphere because the marrying of these different aspects are key to meaningful policy change and effective spending of government funds. Determining important predictors can help policymakers make effective decisions to help reduce obesity prevalence, which is a public health priority.
 
 **Outline of project:**
-This project will be as follows, first we will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas. Then we will conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, and finally we create several predictive models to find the best model with highest predictive power. 
+First we will examine and clean up the available information from datasets downloaded from PLACES and the Food Access Repository Atlas. Then we will conduct exploratory data analysis (EDA) and geospatial analysis to guide our decision for the final models, and finally we create several predictive models to find the best model with highest predictive power. We will also determine what the most important variables for predicting obesity are for each model.
 
 *Setup (loading packages)*
 
@@ -108,8 +110,9 @@ places <- read.socrata(
 
 **The Food Access Research Atlas (FARA)** provides a variety of food access measures for low income and low access census tracts. Food access measures use income, transportation, and distance from grocery stores and other food sellers to determine how accessible food is to residents of a given census tract. This dataset includes distinct measures of access for urban and rural populations.
 
-(rewrite this)
-**PLACES** is an expansion of the original 500 Cities Project that began in 2015. The original project was launched by the Centers for Disease Control and Prevention (CDC) in partnership with the Robert Wood Johnson Foundation (RWJF) and CDC Foundation. In 2018, this partnership was extended through 2020. In 2020, the project expanded to provide small area estimates (SAE) for counties, places, census tracts, and ZIP Code Tabulation Areas (ZCTA) across the entire United States.
+**PLACES** is a collaboration between the CDC, CDC Foundation and the Robert wood Johnson Foundation. The dataset provides chronic disease measures at the county, census tract and ZCTA-level across the country.  This collaboration began in 2015 and contains both collected data and small area estimates dating back to 2016. 
+
+These data sets can be combined with the census tracts.
 
 ```{r}
 # load the FARA dataset 
@@ -248,17 +251,11 @@ ggplot(combined, aes(x = urban, y = OBESITY)) +
 
 #While the average obesity rate is higher in rural areas, urban areas have higher variability of of data.
 
-#scatter plot to explore the relationship between obesity prevalence and poverty rate
-ggplot(combined, aes(x = poverty_rate, y = OBESITY)) +
-  geom_point() +
-  labs(x = "Poverty Rate", y = "Obesity Prevalence")
-
-#Unsurprisingly, as the poverty rate increases, obesity rates increase as well.
-
 #chloropleth map of obesity - need to set the data
 eda_geo(combined, OBESITY)
 
-#I did some exploration by state. I know we discussed sticking with census tract, but I thought this might be an interesting talking point when we are complete with the census tract analysis. 
+#Exploration by state.This highlights the importance of exploring these data by
+#census tract instead of state. Exploring by state would be misleading.
 
 # Calculate summary statistics by state
 summary_stats <- combined %>%
@@ -275,12 +272,14 @@ ggplot(summary_stats, aes(x = stateabbr, y = mean_obesity)) +
   geom_bar(stat = "identity") +
   labs(x = "State", y = "Mean Obesity") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+#Southern states have the highest rates of obesity. HI has the lowest rate.
 
 # Plot median income by state
 ggplot(summary_stats, aes(x = stateabbr, y = median_income)) +
   geom_bar(stat = "identity") +
   labs(x = "State", y = "Median Income") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# DC has the highest median income and MS has the lowest
 
 # Plot standard deviation of food access by state
 ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
@@ -288,10 +287,11 @@ ggplot(summary_stats, aes(x = stateabbr, y = sd_food_access)) +
   labs(x = "State", y = "Standard Deviation of Food Access") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+#most states have a high degree of variability which suggests that
+#food access varies widely across census tracts within a state
+
 ```
 
-
-The standard deviation of food access by state will tell us the degree of variability of the food access variable across different census tracts within each state. A higher standard deviation indicates that the food access variable varies widely across census tracts within a state, while a lower standard deviation suggests that the variable is more consistent across census tracts. This information can be useful in identifying states or regions where food access is more or less uniform, and can help in identifying areas where interventions to improve food access may be most needed. 
 
 
 ```{r}
@@ -365,6 +365,7 @@ obesity_rec <- recipe(OBESITY ~., data = obesity_train) %>%
 ```
 
 **Linear Regression**
+This is a simple and widely-used statistical model for predicting a continuous outcome based on one or more predictor variables. The goal is to find a linear relationship between the outcome and predictors, which can be used to make predictions.
 
 ```{r}
 
@@ -401,7 +402,7 @@ lm_coefs <- lm_final %>%
 ```
 
 **LASSO Model**
-
+This is a linear regression model with a regularization term added to the objective function, which helps to prevent overfitting and improve generalization performance. The LASSO penalty shrinks some of the regression coefficients towards zero, effectively selecting a subset of the most important predictors for the outcome.
 ```{r}
 # create a tuning grid for lasso regularization, varying the regularization penalty
 lasso_grid <- grid_regular(penalty(), levels = 10)
@@ -448,7 +449,7 @@ lasso_coefs <- lasso_final %>%
 ```
 
 **Ridge Model**
-
+This is also a linear regression model with a regularization term, but instead of selecting a subset of predictors, it shrinks all of the regression coefficients towards zero. This can help to reduce the impact of multicollinearity among the predictors.
 ```{r}
 
 # create a tuning grid for ridge regularization, varying the regularization penalty
@@ -497,7 +498,7 @@ ridge_coefs <- ridge_final %>%
 ```
 
 **Elastic Net**
-
+This is a combination of LASSO and ridge regression, with both penalties included in the objective function. This can help to balance the benefits of variable selection and coefficient shrinkage, and is useful when the data contains many correlated predictors.
 ```{r}
 # create a tuning grid for elastic net regularization, varying the regularization penalty
 elastic_net_grid <- grid_regular(penalty(), levels = 10)
@@ -676,15 +677,18 @@ tree_fit %>%
 
 ```
 
-## Final Results 
+## Results
 
-```{r}
-library(tidyverse)
-library(skimr)
+**Best Models**
+In order to pick the best model, we consider the RMSE as the metric used for evaluation, the mean value of the metric across the folds, and the standard error of the metric. Generally, we want to choose the model that has the lowest value of the metric, as this indicates better performance on the test data.
+
+The RMSE values for lm, LASSO, and enet are all the same at 2.55. However, the ridge model has a slightly higher rmse of 2.69. This suggests that the lm, LASSO, and enet models may be better choices than the ridge model.
+
+Additionally, we consider the standard error of the metric. The standard error gives an estimate of the precision of the mean estimate, with a lower value indicating more precision. In our case, we can see that the standard errors for all models are quite small, indicating that the mean estimates are likely quite precise.
+
+**Most Important Variables**
+The two most important variables for each model are consistently diabetes and arthritis across the board with regard to obesity. Specifically, people with diabetes and arthritis may be more likely to develop obesity.
+
+Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero. Therefore, it is likely that BINGE does not contribute much additional information in predicting obesity after accounting for the other predictors in the LASSO, ridge, and enet models. However, the lm model may be overfitting to BINGE due to the absence of regularization, which could explain why it is highly important in that model.
 
 
-
-
-```
-
-## Conclusion 
