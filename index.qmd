@@ -306,7 +306,8 @@ eda_bar <- function(y, ylab){
     labs(x = "State", 
          y = ylab) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    theme_minimal()
+    theme_minimal() +
+    coord_flip()
   
   return(plot)
 }
