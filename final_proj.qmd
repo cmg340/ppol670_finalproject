@@ -346,19 +346,19 @@ obesity_tracts <-  ggplot(combined_census) +
 
 obesity_tracts
 
-interactivemapdata <- combined_census %>% select(name, state, census_tract_x, obesity_num, median_family_income, csmoking, teethlost, maptext) 
+```
 
+```{r}
+#| eval: false
+#this codeblock is an interactive map of obesity by census tract that includes some other information that can pop up when hovering over each tract. While the code runs, it takes a very long time to run so we have chosen not to evaluate it here. 
+interactivemapdata <- combined_census %>% 
+  select(name, state, census_tract_x, obesity_num, median_family_income, csmoking, teethlost, maptext) 
 
 interactivemapdata %>% mapview(zcol = "obesity_num",
                                map.types = "Esri.NatGeoWorldMap",
                                col.regions = brewer.pal(8, "RdYlGn"),
                                color = NA)
 
-```
-
-```{r}
-#| eval: false
-#this codeblock is an interactive map of obesity by census tract that includes some other information that can pop up when hovering over each tract. While the code runs, it takes a very long time to run so we have chosen not to evaluate it here. 
 obesity_tracts_int <-  ggplot() +
   geom_sf_interactive(data = combined_census, 
                       aes(fill = obesity_bin,
@@ -763,5 +763,3 @@ The two most important variables for each model are consistently diabetes and ar
 Evaluating discrepancies: If a variable has a high importance in one model, but not in other models, it means that the other models are able to achieve comparable prediction accuracy without relying heavily on that particular variable. In this case, the variable BINGE is highly important in the lm model but not in LASSO, ridge, and enet models. This suggests that BINGE may be correlated with other predictors, and the regularization techniques in LASSO, ridge, and enet models are able to effectively deal with this multicollinearity by shrinking the coefficient of BINGE to zero or close to zero.
 
 Therefore, it is likely that BINGE does not contribute much additional information in predicting obesity after accounting for the other predictors in the LASSO, ridge, and enet models. However, the lm model may be overfitting to BINGE due to the absence of regularization, which could explain why it is highly important in that model.
-
-
